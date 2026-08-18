@@ -1,20 +1,4108 @@
 <!DOCTYPE html>
+<!--
+  NEURAL_FORGE v0.0 (beta)
+  Original work. Single self-contained file.
+  Stack: HTML5 + CSS3 + vanilla JavaScript + raw WebGL + Web Audio API.
+  No external libraries, fonts, images, samples, or network calls.
+  License: MIT. Copyright (c) 2026 Srikusan.
+-->
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#000000" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
   <title>NEURAL_FORGE v0.0 (beta)</title>
-  <meta http-equiv="refresh" content="0; url=NEURAL_FORGE_v0.0_beta.html" />
   <style>
-    html, body {
-      margin: 0; background: #000; color: #fff;
-      font-family: ui-monospace, "Courier New", monospace;
-      height: 100%; display: flex; align-items: center; justify-content: center;
+    /* =====================================================================
+       NEURAL_FORGE — original cyberpunk B&W HUD
+       Pure CSS3. System monospace only. No external fonts or icons.
+       ===================================================================== */
+    :root {
+      --bg: #000;
+      --fg: #fff;
+      --dim: #8a8a8a;
+      --mute: #3a3a3a;
+      --panel: rgba(0, 0, 0, 0.88);
+      --line: #fff;
+      --hair: rgba(255, 255, 255, 0.14);
+      --scan: rgba(255, 255, 255, 0.028);
+      --hit: 44px;
+      --bar-h: 42px;
+      --scope-h: 132px;
+      --lib-w: 216px;
+      --ins-w: 248px;
+      --font: ui-monospace, "Courier New", Courier, monospace;
     }
-    a { color: #fff; letter-spacing: 0.12em; }
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    html, body {
+      margin: 0; padding: 0; width: 100%; height: 100%;
+      background: var(--bg); color: var(--fg);
+      font-family: var(--font); font-size: 12px; letter-spacing: 0.04em;
+      overflow: hidden; user-select: none;
+    }
+    button, input, select, textarea { font-family: inherit; color: inherit; }
+    button {
+      background: #000; color: #fff; border: 1px solid #fff;
+      cursor: pointer; letter-spacing: 0.08em; text-transform: uppercase;
+    }
+    button:hover, button:focus-visible { background: #fff; color: #000; outline: none; }
+    button:disabled { opacity: 0.35; cursor: not-allowed; }
+    button.active { background: #fff; color: #000; }
+    input, select, textarea {
+      background: #000; border: 1px solid #fff; padding: 4px 6px;
+    }
+    input[type="range"] { accent-color: #fff; width: 100%; }
+    #app { position: fixed; inset: 0; display: grid;
+      grid-template-rows: var(--bar-h) 1fr var(--scope-h);
+      grid-template-columns: var(--lib-w) 1fr var(--ins-w);
+      grid-template-areas:
+        "top top top"
+        "lib view ins"
+        "scope scope scope";
+    }
+    #app > * { min-height: 0; }
+    #top {
+      grid-area: top; display: flex; align-items: center; gap: 8px;
+      padding: 0 8px; border-bottom: 1px solid #fff; background: #000;
+      z-index: 20; overflow: hidden;
+    }
+    #brand {
+      display: flex; align-items: baseline; gap: 8px; margin-right: 6px;
+      white-space: nowrap; padding-left: 6px;
+    }
+    #brand b { font-size: 13px; letter-spacing: 0.22em; font-weight: 700; padding-left: 0.22em; }
+    #brand span { color: var(--dim); font-size: 10px; letter-spacing: 0.18em; }
+    .sep { width: 1px; height: 18px; background: #fff; opacity: 0.35; flex: 0 0 1px; }
+    .grp { display: flex; align-items: center; gap: 4px; flex-wrap: nowrap; }
+    .grp label { color: var(--dim); font-size: 10px; letter-spacing: 0.16em; }
+    #top button { height: 26px; padding: 0 8px; font-size: 10px; }
+    #left {
+      grid-area: lib; border-right: 1px solid #fff; background: var(--panel);
+      display: flex; flex-direction: column;
+      min-width: 0; min-height: 0; height: 100%; overflow: hidden; z-index: 12;
+    }
+    #right {
+      grid-area: ins; border-left: 1px solid #fff; background: var(--panel);
+      display: flex; flex-direction: column;
+      min-width: 0; min-height: 0; height: 100%; overflow: hidden; z-index: 12;
+    }
+    #stage {
+      grid-area: view; position: relative; background: #000; overflow: hidden;
+    }
+    #schematic, #gl {
+      position: absolute; inset: 0; width: 100%; height: 100%; display: block;
+      touch-action: none;
+    }
+    #gl { display: none; }
+    #bottom {
+      grid-area: scope; border-top: 1px solid #fff; background: #000;
+      display: grid; grid-template-columns: 168px 1fr; min-height: 0; z-index: 11;
+    }
+    .panel-h {
+      height: 28px; display: flex; align-items: center; justify-content: space-between;
+      padding: 0 8px; border-bottom: 1px solid var(--hair);
+      font-size: 10px; letter-spacing: 0.22em; text-transform: uppercase;
+    }
+    .panel-b {
+      flex: 1 1 auto; min-height: 0; overflow-x: hidden; overflow-y: auto;
+      padding: 8px; -webkit-overflow-scrolling: touch;
+      overscroll-behavior: contain; touch-action: pan-y;
+    }
+    #libhead {
+      flex: 0 0 auto; padding: 8px 8px 6px; border-bottom: 1px solid var(--hair);
+      background: #000; z-index: 2;
+    }
+    #search {
+      width: 100%; margin: 0 0 8px; height: 32px; min-height: 32px; font-size: 11px;
+    }
+    #libcats { display: flex; flex-wrap: wrap; gap: 4px; }
+    #libcats button {
+      height: 28px; min-height: 28px; padding: 0 8px; font-size: 9px;
+      letter-spacing: 0.1em; border: 1px solid var(--mute);
+    }
+    #libcats button.active { background: #fff; color: #000; border-color: #fff; }
+    #libscroll {
+      flex: 1 1 auto; min-height: 0; overflow-x: hidden; overflow-y: auto;
+      padding: 8px; -webkit-overflow-scrolling: touch;
+      overscroll-behavior: contain; touch-action: pan-y;
+      scroll-behavior: smooth;
+    }
+    .cat {
+      margin: 10px 0 4px; color: var(--dim); font-size: 10px; letter-spacing: 0.2em;
+      position: sticky; top: 0; background: #000; z-index: 1; padding: 6px 0 4px;
+    }
+    .lib-list { display: flex; flex-direction: column; gap: 4px; }
+    .lib-item {
+      display: grid; grid-template-columns: 40px 1fr; gap: 6px; align-items: center;
+      border: 1px solid var(--mute); padding: 4px; cursor: pointer; min-height: var(--hit);
+      background: #000;
+    }
+    .lib-item:hover, .lib-item.sel { border-color: #fff; background: #0a0a0a; }
+    .lib-item canvas { width: 40px; height: 28px; display: block; }
+    .lib-item .nm { font-size: 11px; line-height: 1.2; }
+    .lib-item .sub { color: var(--dim); font-size: 9px; }
+    body.kid .lib-item { grid-template-columns: 52px 1fr; min-height: 56px; }
+    body.kid .lib-item canvas { width: 52px; height: 40px; }
+    body.kid .lib-item .nm { font-size: 13px; }
+    body.kid #libcats button { min-height: var(--hit); height: auto; padding: 8px; }
+    .field { margin-bottom: 8px; }
+    .field > span, .field > label {
+      display: block; color: var(--dim); font-size: 10px; letter-spacing: 0.14em;
+      margin-bottom: 3px; text-transform: uppercase;
+    }
+    .field input[type="number"], .field input[type="text"], .field select { width: 100%; }
+    .hint { color: var(--dim); font-size: 11px; line-height: 1.45; letter-spacing: 0.02em; }
+    .hint b { color: #fff; font-weight: 600; }
+    .kv { display: flex; justify-content: space-between; gap: 8px; font-size: 11px; margin: 3px 0; }
+    .kv i { color: var(--dim); font-style: normal; }
+    #scope-meta { padding: 8px; border-right: 1px solid var(--hair); overflow: auto; }
+    #scope-wrap { position: relative; }
+    #scope { display: block; width: 100%; height: 100%; }
+    #hud-overlay, #scan, #vignette {
+      position: absolute; inset: 0; pointer-events: none;
+    }
+    #scan {
+      background: repeating-linear-gradient(
+        to bottom,
+        transparent 0, transparent 2px,
+        var(--scan) 2px, var(--scan) 3px
+      );
+      z-index: 5;
+    }
+    #vignette {
+      box-shadow: inset 0 0 80px rgba(0,0,0,0.55);
+      z-index: 4;
+    }
+    #cross { position: absolute; left: 10px; bottom: 8px; z-index: 6;
+      color: var(--dim); font-size: 10px; letter-spacing: 0.12em; pointer-events: none; }
+    #toast {
+      position: absolute; left: 50%; top: 12px; transform: translateX(-50%);
+      border: 1px solid #fff; background: #000; padding: 6px 12px;
+      z-index: 30; display: none; letter-spacing: 0.12em; font-size: 11px;
+      max-width: min(90%, 520px); text-align: center;
+    }
+    #modal {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.82);
+      display: none; align-items: center; justify-content: center; z-index: 80;
+    }
+    #modal .box {
+      width: min(640px, 92vw); max-height: 86vh; overflow: auto;
+      border: 1px solid #fff; background: #000; padding: 18px 20px;
+      box-shadow: 0 0 0 1px #000, 0 0 24px rgba(255,255,255,0.08);
+    }
+    #modal h2 { margin: 0 0 10px; letter-spacing: 0.28em; font-size: 16px; }
+    #modal h3 { margin: 16px 0 6px; letter-spacing: 0.18em; font-size: 12px; }
+    #modal p { color: #d0d0d0; line-height: 1.55; letter-spacing: 0.03em; }
+    #modal .row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
+    #boot {
+      position: fixed; inset: 0; background: #000; z-index: 100;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      letter-spacing: 0.4em;
+    }
+    #boot .t { font-size: clamp(22px, 5vw, 42px); font-weight: 700; }
+    #boot .s { margin-top: 10px; color: var(--dim); font-size: 11px; letter-spacing: 0.32em; }
+    #boot .bar { width: min(280px, 70vw); height: 2px; background: #222; margin-top: 22px; }
+    #boot .bar > i { display: block; height: 100%; width: 0; background: #fff; }
+    #mobnav {
+      display: none; position: fixed; bottom: 0; left: 0; right: 0; z-index: 40;
+      border-top: 1px solid #fff; background: #000;
+      grid-template-columns: repeat(5, 1fr);
+    }
+    #mobnav button { border: 0; border-right: 1px solid #333; height: 46px; font-size: 9px; }
+    #mobnav button:last-child { border-right: 0; }
+    .drawer-open #left, .drawer-open #right { display: flex; }
+    #netbox, #eqbox {
+      width: 100%; min-height: 72px; font-size: 10px; line-height: 1.4;
+      resize: vertical; white-space: pre;
+    }
+    .led-sw { display: flex; gap: 4px; }
+    .ok { color: #fff; }
+    .warn { color: #bbb; }
+    .mission { border: 1px solid var(--mute); padding: 8px; margin-bottom: 8px; }
+    .mission.on { border-color: #fff; }
+    #filein { display: none; }
+    @media (max-width: 900px) {
+      #app {
+        grid-template-columns: 1fr;
+        grid-template-rows: var(--bar-h) 1fr 110px 46px;
+        grid-template-areas:
+          "top"
+          "view"
+          "scope"
+          "nav";
+      }
+      #left, #right {
+        display: none; position: absolute; top: var(--bar-h); bottom: 156px;
+        width: min(86vw, 320px); z-index: 25;
+        height: auto; min-height: 0;
+      }
+      #libcats button { min-height: var(--hit); height: auto; padding: 8px; }
+      #left { left: 0; border-right: 1px solid #fff; }
+      #right { right: 0; left: auto; border-left: 1px solid #fff; }
+      body.show-lib #left { display: flex; }
+      body.show-ins #right { display: flex; }
+      #mobnav { display: grid; grid-area: nav; }
+      #bottom { grid-template-columns: 110px 1fr; }
+      #top .hide-sm { display: none; }
+      :root { --scope-h: 110px; }
+    }
   </style>
 </head>
-<body>
-  <p><a href="NEURAL_FORGE_v0.0_beta.html">Open NEURAL_FORGE v0.0 (beta)</a></p>
+<body class="kid">
+  <div id="boot">
+    <div class="t">NEURAL_FORGE</div>
+    <div class="s">ELECTRONICS UNIVERSE  v0.0 (beta)</div>
+    <div class="bar"><i id="bootbar"></i></div>
+  </div>
+  <div id="app">
+    <header id="top">
+      <div id="brand"><b>NEURAL_FORGE</b><span>v0.0 (beta)</span></div>
+      <div class="sep"></div>
+      <div class="grp">
+        <button id="btn-new" title="New circuit">NEW</button>
+        <button id="btn-load" title="Load JSON">LOAD</button>
+        <button id="btn-save" title="Save JSON">SAVE</button>
+        <button id="btn-shot" class="hide-sm" title="Export PNG">SHOT</button>
+      </div>
+      <div class="sep"></div>
+      <div class="grp">
+        <button id="btn-run" title="Run / Pause (Space)">RUN</button>
+        <button id="btn-step" title="Single step">STEP</button>
+        <button id="btn-reset" title="Reset time">RST</button>
+        <select id="sel-an" title="Analysis">
+          <option value="dc">DC</option>
+          <option value="tran" selected>TRAN</option>
+          <option value="ac">AC</option>
+          <option value="logic">LOGIC</option>
+        </select>
+        <select id="sel-spd" title="Speed" class="hide-sm">
+          <option value="0.1">0.1x</option>
+          <option value="1" selected>1x</option>
+          <option value="10">10x</option>
+          <option value="100">100x</option>
+        </select>
+      </div>
+      <div class="sep"></div>
+      <div class="grp">
+        <button id="btn-2d" class="active">2D</button>
+        <button id="btn-3d">3D</button>
+      </div>
+      <div class="sep hide-sm"></div>
+      <div class="grp hide-sm">
+        <button id="btn-kid" class="active">KID</button>
+        <button id="btn-eng">ENG</button>
+      </div>
+      <div style="flex:1"></div>
+      <div class="grp">
+        <button id="btn-help">?</button>
+        <button id="btn-miss">MISSION</button>
+      </div>
+    </header>
+    <aside id="left">
+      <div class="panel-h"><span>LIBRARY</span><span id="libcount">0</span></div>
+      <div id="libhead">
+        <input id="search" type="search" placeholder="SEARCH PARTS" autocomplete="off" />
+        <div id="libcats"></div>
+      </div>
+      <div id="libscroll">
+        <div id="libroot"></div>
+      </div>
+    </aside>
+    <main id="stage">
+      <canvas id="schematic"></canvas>
+      <canvas id="gl"></canvas>
+      <div id="vignette"></div>
+      <div id="scan"></div>
+      <div id="cross">GRID 10 · SNAP ON</div>
+      <div id="toast"></div>
+    </main>
+    <aside id="right">
+      <div class="panel-h"><span>INSPECTOR</span><span id="selname">—</span></div>
+      <div class="panel-b" id="insp">
+        <div class="hint">Select a part, or pick one from the library and tap the grid to place it. Drag a pin to wire.</div>
+      </div>
+    </aside>
+    <footer id="bottom">
+      <div id="scope-meta">
+        <div class="panel-h" style="padding:0 0 6px;border:0;height:auto"><span>SCOPE</span></div>
+        <div id="chmeta" class="hint">No probes. Add a PROBE or enable a pin.</div>
+      </div>
+      <div id="scope-wrap"><canvas id="scope"></canvas></div>
+    </footer>
+    <nav id="mobnav">
+      <button id="m-lib">LIB</button>
+      <button id="m-ins">INS</button>
+      <button id="m-mode">KID</button>
+      <button id="m-view">2D</button>
+      <button id="m-help">HELP</button>
+    </nav>
+  </div>
+  <div id="modal"><div class="box" id="modalbox"></div></div>
+  <input id="filein" type="file" accept="application/json,.json" />
+
+  <script>
+  /* ========================================================================
+     NEURAL_FORGE v0.0 (beta)
+     Original browser-native electronics universe.
+     Written entirely in this file. No third-party source was used as a donor.
+
+     Stack (nothing else):
+       HTML5 + CSS3 + vanilla JavaScript + raw WebGL + Web Audio API
+
+     Architecture
+     ------------
+     UI ........ original cyberpunk HUD, mode switch, panels, missions
+     SCH ....... original 2D schematic editor (snap, wires, live annotations)
+     GL ........ original WebGL renderer + procedural low-poly parts
+     REG ....... expandable component registry (symbol, 3D, pins, stamp, digital)
+     MNA ....... original Modified Nodal Analysis, original LU with partial pivoting
+     TRAN ...... Backward Euler companion models + Newton-Raphson (first principles)
+     AC ........ original complex MNA small-signal sweep
+     DIG ....... original event-driven logic + mixed-signal thresholds
+     AUD ....... procedural Web Audio oscillators only (no samples)
+     IO ........ localStorage + JSON download/upload (no network)
+
+     MNA form (ground node 0 eliminated) — public linear-algebra identity:
+         [ G   B ] [ v ]   [ i ]
+         [ Bᵀ  0 ] [ j ] = [ e ]
+     G  = nodal conductances, B maps voltage-source branches,
+     v  = unknown node voltages, j = voltage-source currents,
+     i  = independent current injections, e = voltage-source values.
+
+     Educational-model notes (v0.0 beta):
+     - Junction, bipolar, and FET equations follow textbook public knowledge
+       (Shockley 1949; Ebers–Moll 1954; first-order long-channel FET).
+       They are original code, not a port of any compact-model library.
+     - Transmission-line and VLSI blocks are lumped educational abstractions.
+     - Antenna is radiation-resistance + simple source, not a field solver.
+     - LED emission is the only intentional chromatic exception (physics).
+     ======================================================================== */
+  (function () {
+    'use strict';
+
+    const NF = {
+      version: '0.0-beta',
+      mode: 'kid',          // kid | engineer
+      view: 'schematic',    // schematic | gl
+      analysis: 'tran',     // dc | tran | ac | logic
+      running: false,
+      t: 0,
+      dt: 2e-5,
+      userDt: 2e-5,
+      speed: 1,
+      ready: false,
+      maxUnknowns: 64,
+      maxParticles: 180
+    };
+
+    /* ============================== UTIL ================================= */
+    const $ = (id) => document.getElementById(id);
+    const clamp = (x, a, b) => x < a ? a : (x > b ? b : x);
+    const lerp = (a, b, t) => a + (b - a) * t;
+    const hypot = Math.hypot;
+    const TAU = Math.PI * 2;
+    const uid = () => {
+      NF._id = (NF._id || 1000) + 1;
+      return NF._id;
+    };
+    function toast(msg, ms) {
+      const el = $('toast');
+      el.textContent = msg;
+      el.style.display = 'block';
+      clearTimeout(toast._t);
+      toast._t = setTimeout(() => { el.style.display = 'none'; }, ms || 2200);
+    }
+    function fmt(x, d) {
+      if (x == null || !isFinite(x)) return '—';
+      const a = Math.abs(x);
+      if (a !== 0 && (a < 1e-3 || a >= 1e4)) return x.toExponential(d == null ? 3 : d);
+      return x.toFixed(d == null ? 4 : d);
+    }
+    function fmtU(x, u) {
+      if (x == null || !isFinite(x)) return '—';
+      const a = Math.abs(x);
+      const p = [
+        [1e12, 'T'], [1e9, 'G'], [1e6, 'M'], [1e3, 'k'],
+        [1, ''], [1e-3, 'm'], [1e-6, 'µ'], [1e-9, 'n'], [1e-12, 'p']
+      ];
+      for (const [s, pre] of p) {
+        if (a >= s || s === 1e-12) return (x / s).toFixed(3) + ' ' + pre + u;
+      }
+      return fmt(x) + ' ' + u;
+    }
+    function deep(o) { return JSON.parse(JSON.stringify(o)); }
+    function now() { return performance.now(); }
+
+    /* ============================ MATH / LU ============================== */
+    /* Dense LU with partial pivoting, written from first principles.
+       PA = LU stored in one matrix: L strictly below diagonal (unit diag
+       implied), U on and above. Used for real DC/TRAN and (complex twin)
+       for AC. */
+    function zeros(n) {
+      const A = new Array(n);
+      for (let i = 0; i < n; i++) {
+        A[i] = new Float64Array(n);
+      }
+      return A;
+    }
+    function luFactor(A) {
+      const n = A.length;
+      const P = new Int16Array(n);
+      for (let i = 0; i < n; i++) P[i] = i;
+      const LU = new Array(n);
+      for (let i = 0; i < n; i++) LU[i] = Float64Array.from(A[i]);
+      for (let k = 0; k < n; k++) {
+        let max = 0, piv = k;
+        for (let i = k; i < n; i++) {
+          const v = Math.abs(LU[i][k]);
+          if (v > max) { max = v; piv = i; }
+        }
+        if (max < 1e-18) return { ok: false, LU, P };
+        if (piv !== k) {
+          const tmp = LU[k]; LU[k] = LU[piv]; LU[piv] = tmp;
+          const p = P[k]; P[k] = P[piv]; P[piv] = p;
+        }
+        const akk = LU[k][k];
+        for (let i = k + 1; i < n; i++) {
+          const f = LU[i][k] / akk;
+          LU[i][k] = f;
+          const LUi = LU[i], LUk = LU[k];
+          for (let j = k + 1; j < n; j++) LUi[j] -= f * LUk[j];
+        }
+      }
+      return { ok: true, LU, P };
+    }
+    function luSolve(fact, b) {
+      const { LU, P } = fact;
+      const n = LU.length;
+      const y = new Float64Array(n);
+      const x = new Float64Array(n);
+      for (let i = 0; i < n; i++) {
+        let s = b[P[i]];
+        const LUi = LU[i];
+        for (let j = 0; j < i; j++) s -= LUi[j] * y[j];
+        y[i] = s;
+      }
+      for (let i = n - 1; i >= 0; i--) {
+        let s = y[i];
+        const LUi = LU[i];
+        for (let j = i + 1; j < n; j++) s -= LUi[j] * x[j];
+        x[i] = s / LUi[i];
+      }
+      return x;
+    }
+
+    /* Complex plane: {re, im}. Used only by AC MNA. */
+    const Cz = (re, im) => ({ re: re || 0, im: im || 0 });
+    const Cadd = (a, b) => ({ re: a.re + b.re, im: a.im + b.im });
+    const Csub = (a, b) => ({ re: a.re - b.re, im: a.im - b.im });
+    const Cmul = (a, b) => ({ re: a.re * b.re - a.im * b.im, im: a.re * b.im + a.im * b.re });
+    const Cdiv = (a, b) => {
+      const d = b.re * b.re + b.im * b.im;
+      return { re: (a.re * b.re + a.im * b.im) / d, im: (a.im * b.re - a.re * b.im) / d };
+    };
+    const Cabs = (a) => Math.hypot(a.re, a.im);
+    function cluFactor(A) {
+      const n = A.length;
+      const P = new Int16Array(n);
+      for (let i = 0; i < n; i++) P[i] = i;
+      const LU = A.map((row) => row.map((z) => ({ re: z.re, im: z.im })));
+      for (let k = 0; k < n; k++) {
+        let max = 0, piv = k;
+        for (let i = k; i < n; i++) {
+          const v = Cabs(LU[i][k]);
+          if (v > max) { max = v; piv = i; }
+        }
+        if (max < 1e-18) return { ok: false, LU, P };
+        if (piv !== k) {
+          const tmp = LU[k]; LU[k] = LU[piv]; LU[piv] = tmp;
+          const p = P[k]; P[k] = P[piv]; P[piv] = p;
+        }
+        const akk = LU[k][k];
+        for (let i = k + 1; i < n; i++) {
+          const f = Cdiv(LU[i][k], akk);
+          LU[i][k] = f;
+          for (let j = k + 1; j < n; j++) LU[i][j] = Csub(LU[i][j], Cmul(f, LU[k][j]));
+        }
+      }
+      return { ok: true, LU, P };
+    }
+    function cluSolve(fact, b) {
+      const { LU, P } = fact;
+      const n = LU.length;
+      const y = new Array(n);
+      const x = new Array(n);
+      for (let i = 0; i < n; i++) {
+        let s = { re: b[P[i]].re, im: b[P[i]].im };
+        for (let j = 0; j < i; j++) s = Csub(s, Cmul(LU[i][j], y[j]));
+        y[i] = s;
+      }
+      for (let i = n - 1; i >= 0; i--) {
+        let s = y[i];
+        for (let j = i + 1; j < n; j++) s = Csub(s, Cmul(LU[i][j], x[j]));
+        x[i] = Cdiv(s, LU[i][i]);
+      }
+      return x;
+    }
+
+    /* 4×4 matrices, column-major, original. Used by the WebGL camera. */
+    function m4Ident() {
+      return new Float32Array([1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1]);
+    }
+    function m4Mul(a, b) {
+      const o = new Float32Array(16);
+      for (let c = 0; c < 4; c++) {
+        for (let r = 0; r < 4; r++) {
+          o[c * 4 + r] =
+            a[0 * 4 + r] * b[c * 4 + 0] +
+            a[1 * 4 + r] * b[c * 4 + 1] +
+            a[2 * 4 + r] * b[c * 4 + 2] +
+            a[3 * 4 + r] * b[c * 4 + 3];
+        }
+      }
+      return o;
+    }
+    function m4Persp(fovy, aspect, near, far) {
+      const f = 1 / Math.tan(fovy / 2);
+      const nf = 1 / (near - far);
+      const o = new Float32Array(16);
+      o[0] = f / aspect; o[5] = f; o[10] = (far + near) * nf; o[11] = -1;
+      o[14] = 2 * far * near * nf;
+      return o;
+    }
+    function m4Look(ex, ey, ez, tx, ty, tz, ux, uy, uz) {
+      let zx = ex - tx, zy = ey - ty, zz = ez - tz;
+      let zl = Math.hypot(zx, zy, zz) || 1;
+      zx /= zl; zy /= zl; zz /= zl;
+      let xx = uy * zz - uz * zy, xy = uz * zx - ux * zz, xz = ux * zy - uy * zx;
+      let xl = Math.hypot(xx, xy, xz) || 1;
+      xx /= xl; xy /= xl; xz /= xl;
+      const yx = zy * xz - zz * xy, yy = zz * xx - zx * xz, yz = zx * xy - zy * xx;
+      const o = m4Ident();
+      o[0] = xx; o[1] = yx; o[2] = zx;
+      o[4] = xy; o[5] = yy; o[6] = zy;
+      o[8] = xz; o[9] = yz; o[10] = zz;
+      o[12] = -(xx * ex + xy * ey + xz * ez);
+      o[13] = -(yx * ex + yy * ey + yz * ez);
+      o[14] = -(zx * ex + zy * ey + zz * ez);
+      return o;
+    }
+    function m4T(x, y, z) {
+      const o = m4Ident(); o[12] = x; o[13] = y; o[14] = z; return o;
+    }
+    function m4Ry(a) {
+      const c = Math.cos(a), s = Math.sin(a), o = m4Ident();
+      o[0] = c; o[8] = s; o[2] = -s; o[10] = c; return o;
+    }
+    function m4Rx(a) {
+      const c = Math.cos(a), s = Math.sin(a), o = m4Ident();
+      o[5] = c; o[9] = -s; o[6] = s; o[10] = c; return o;
+    }
+    function m4S(x, y, z) {
+      const o = m4Ident(); o[0] = x; o[5] = y; o[10] = z; return o;
+    }
+
+    /* ============================== AUDIO ================================ */
+    const AUD = {
+      ctx: null,
+      hum: null,
+      enabled: true,
+      unlock() {
+        if (this.ctx) return;
+        const AC = window.AudioContext || window.webkitAudioContext;
+        if (!AC) { this.enabled = false; return; }
+        this.ctx = new AC();
+        this._humBus();
+      },
+      _humBus() {
+        const c = this.ctx;
+        const o = c.createOscillator();
+        const g = c.createGain();
+        o.type = 'sine';
+        o.frequency.value = 58;
+        g.gain.value = 0;
+        o.connect(g); g.connect(c.destination);
+        o.start();
+        this.hum = { o, g };
+      },
+      beep(freq, dur, type, gain) {
+        if (!this.ctx || !this.enabled) return;
+        if (this.ctx.state === 'suspended') this.ctx.resume();
+        const c = this.ctx;
+        const o = c.createOscillator();
+        const g = c.createGain();
+        o.type = type || 'square';
+        o.frequency.value = freq;
+        g.gain.value = gain == null ? 0.04 : gain;
+        o.connect(g); g.connect(c.destination);
+        const t = c.currentTime;
+        g.gain.setValueAtTime(g.gain.value, t);
+        g.gain.exponentialRampToValueAtTime(0.0008, t + dur);
+        o.start(t); o.stop(t + dur + 0.02);
+      },
+      place() { this.beep(880, 0.05, 'square', 0.03); },
+      wire() { this.beep(1400, 0.04, 'sawtooth', 0.025); },
+      run() { this.beep(220, 0.12, 'sine', 0.05); this.beep(440, 0.18, 'sine', 0.03); },
+      ok() { this.beep(523, 0.1, 'square', 0.04); setTimeout(() => this.beep(784, 0.16, 'square', 0.04), 90); },
+      bad() { this.beep(140, 0.22, 'sawtooth', 0.05); },
+      tick() { this.beep(1900, 0.012, 'square', 0.015); },
+      setHum(mag) {
+        if (!this.hum) return;
+        const g = clamp(Math.log10(1 + mag * 80) * 0.012, 0, 0.045);
+        this.hum.g.gain.setTargetAtTime(g, this.ctx.currentTime, 0.08);
+      }
+    };
+    window.addEventListener('pointerdown', () => AUD.unlock(), { once: true });
+
+    /* ======================== COMPONENT REGISTRY ========================= */
+    const REG = { types: {}, order: [] };
+    REG.get = (id) => REG.types[id];
+    REG.register = (def) => {
+      REG.types[def.id] = def;
+      REG.order.push(def.id);
+    };
+
+    function P2(a, b) {
+      return [{ id: a, x: -28, y: 0 }, { id: b, x: 28, y: 0 }];
+    }
+    function rotP(x, y, rot) {
+      const k = ((rot % 4) + 4) % 4;
+      if (k === 0) return [x, y];
+      if (k === 1) return [-y, x];
+      if (k === 2) return [-x, -y];
+      return [y, -x];
+    }
+    function pinWorld(c, pin) {
+      const [x, y] = rotP(pin.x, pin.y, c.rot);
+      return { x: c.x + x, y: c.y + y };
+    }
+
+    function strokeSym(ctx, draw) {
+      ctx.save();
+      ctx.strokeStyle = '#fff';
+      ctx.fillStyle = '#fff';
+      ctx.lineWidth = 1.6;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      draw(ctx);
+      ctx.restore();
+    }
+    function pinsDots(ctx, pins) {
+      ctx.fillStyle = '#fff';
+      for (const p of pins) {
+        ctx.fillRect(p.x - 2, p.y - 2, 4, 4);
+      }
+    }
+    function label(ctx, t, x, y) {
+      ctx.fillStyle = '#fff';
+      ctx.font = '9px ui-monospace, monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText(t, x, y);
+    }
+
+    /* ---- symbols (original canvas geometry) ---- */
+    function drawR(ctx) {
+      ctx.beginPath();
+      ctx.moveTo(-28, 0); ctx.lineTo(-16, 0);
+      ctx.lineTo(-13, -7); ctx.lineTo(-7, 7); ctx.lineTo(-1, -7);
+      ctx.lineTo(5, 7); ctx.lineTo(11, -7); ctx.lineTo(16, 0);
+      ctx.lineTo(28, 0);
+      ctx.stroke();
+    }
+    function drawC(ctx) {
+      ctx.beginPath();
+      ctx.moveTo(-28, 0); ctx.lineTo(-5, 0);
+      ctx.moveTo(-5, -12); ctx.lineTo(-5, 12);
+      ctx.moveTo(5, -12); ctx.lineTo(5, 12);
+      ctx.moveTo(5, 0); ctx.lineTo(28, 0);
+      ctx.stroke();
+    }
+    function drawL(ctx) {
+      ctx.beginPath();
+      ctx.moveTo(-28, 0); ctx.lineTo(-16, 0);
+      for (let i = 0; i < 4; i++) {
+        ctx.arc(-12 + i * 7, 0, 3.5, Math.PI, 0, false);
+      }
+      ctx.lineTo(28, 0);
+      ctx.stroke();
+    }
+    function drawV(ctx, ac) {
+      ctx.beginPath();
+      ctx.arc(0, 0, 12, 0, TAU);
+      ctx.moveTo(-28, 0); ctx.lineTo(-12, 0);
+      ctx.moveTo(12, 0); ctx.lineTo(28, 0);
+      ctx.stroke();
+      if (ac) {
+        ctx.beginPath();
+        ctx.moveTo(-6, 0);
+        ctx.quadraticCurveTo(-3, -7, 0, 0);
+        ctx.quadraticCurveTo(3, 7, 6, 0);
+        ctx.stroke();
+      } else {
+        ctx.beginPath();
+        ctx.moveTo(-3, -5); ctx.lineTo(-3, 5);
+        ctx.moveTo(-6, 0); ctx.lineTo(0, 0);
+        ctx.moveTo(5, -5); ctx.lineTo(5, 5);
+        ctx.stroke();
+      }
+    }
+    function drawI(ctx) {
+      ctx.beginPath();
+      ctx.arc(0, 0, 12, 0, TAU);
+      ctx.moveTo(-28, 0); ctx.lineTo(-12, 0);
+      ctx.moveTo(12, 0); ctx.lineTo(28, 0);
+      ctx.moveTo(0, -6); ctx.lineTo(0, 6);
+      ctx.moveTo(-3, 3); ctx.lineTo(0, 6); ctx.lineTo(3, 3);
+      ctx.stroke();
+    }
+    function drawGnd(ctx) {
+      ctx.beginPath();
+      ctx.moveTo(0, -16); ctx.lineTo(0, 0);
+      ctx.moveTo(-12, 0); ctx.lineTo(12, 0);
+      ctx.moveTo(-8, 5); ctx.lineTo(8, 5);
+      ctx.moveTo(-4, 10); ctx.lineTo(4, 10);
+      ctx.stroke();
+    }
+    function drawDiode(ctx, led) {
+      ctx.beginPath();
+      ctx.moveTo(-28, 0); ctx.lineTo(-8, 0);
+      ctx.moveTo(-8, -10); ctx.lineTo(-8, 10); ctx.lineTo(8, 0); ctx.closePath();
+      ctx.moveTo(8, -10); ctx.lineTo(8, 10);
+      ctx.moveTo(8, 0); ctx.lineTo(28, 0);
+      ctx.stroke();
+      if (led) {
+        ctx.beginPath();
+        ctx.moveTo(2, -12); ctx.lineTo(10, -20);
+        ctx.moveTo(8, -12); ctx.lineTo(16, -20);
+        ctx.stroke();
+      }
+    }
+    function drawBJT(ctx, pnp) {
+      ctx.beginPath();
+      ctx.arc(0, 0, 14, 0, TAU);
+      ctx.moveTo(-28, 0); ctx.lineTo(-6, 0);
+      ctx.moveTo(-6, -10); ctx.lineTo(-6, 10);
+      ctx.moveTo(-6, -5); ctx.lineTo(10, -14); ctx.lineTo(10, -22);
+      ctx.moveTo(-6, 5); ctx.lineTo(10, 14); ctx.lineTo(10, 22);
+      ctx.stroke();
+      ctx.beginPath();
+      if (pnp) {
+        ctx.moveTo(-6, 5); ctx.lineTo(0, 3); ctx.lineTo(-1, 10);
+      } else {
+        ctx.moveTo(10, 14); ctx.lineTo(3, 8); ctx.lineTo(4, 16);
+      }
+      ctx.stroke();
+    }
+    function drawMOS(ctx, pch) {
+      ctx.beginPath();
+      ctx.moveTo(-28, 0); ctx.lineTo(-10, 0);
+      ctx.moveTo(-10, -12); ctx.lineTo(-10, 12);
+      ctx.moveTo(-6, -14); ctx.lineTo(-6, 14);
+      ctx.moveTo(-6, -10); ctx.lineTo(8, -10); ctx.lineTo(8, -22);
+      ctx.moveTo(-6, 10); ctx.lineTo(8, 10); ctx.lineTo(8, 22);
+      ctx.moveTo(8, 0); ctx.lineTo(-6, 0);
+      ctx.stroke();
+      if (pch) {
+        ctx.beginPath(); ctx.arc(-2, 0, 2.5, 0, TAU); ctx.stroke();
+      }
+    }
+    function drawOA(ctx) {
+      ctx.beginPath();
+      ctx.moveTo(-16, -16); ctx.lineTo(-16, 16); ctx.lineTo(18, 0); ctx.closePath();
+      ctx.moveTo(-28, -8); ctx.lineTo(-16, -8);
+      ctx.moveTo(-28, 8); ctx.lineTo(-16, 8);
+      ctx.moveTo(18, 0); ctx.lineTo(28, 0);
+      ctx.moveTo(-12, -11); ctx.lineTo(-8, -11);
+      ctx.moveTo(-10, -13); ctx.lineTo(-10, -9);
+      ctx.moveTo(-12, 8); ctx.lineTo(-8, 8);
+      ctx.stroke();
+    }
+    function drawGate(ctx, kind) {
+      ctx.beginPath();
+      if (kind === 'NOT') {
+        ctx.moveTo(-16, -12); ctx.lineTo(-16, 12); ctx.lineTo(8, 0); ctx.closePath();
+        ctx.stroke();
+        ctx.beginPath(); ctx.arc(12, 0, 3.5, 0, TAU); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(-28, 0); ctx.lineTo(-16, 0);
+        ctx.moveTo(15.5, 0); ctx.lineTo(28, 0); ctx.stroke();
+      } else {
+        ctx.moveTo(-14, -14);
+        if (kind === 'OR' || kind === 'NOR' || kind === 'XOR') {
+          ctx.quadraticCurveTo(-4, 0, -14, 14);
+          ctx.quadraticCurveTo(4, 14, 14, 0);
+          ctx.quadraticCurveTo(4, -14, -14, -14);
+        } else {
+          ctx.lineTo(-14, 14); ctx.lineTo(4, 14);
+          ctx.quadraticCurveTo(16, 0, 4, -14); ctx.lineTo(-14, -14);
+        }
+        ctx.stroke();
+        if (kind === 'NAND' || kind === 'NOR' || kind === 'NOT') {
+          ctx.beginPath(); ctx.arc(18, 0, 3.2, 0, TAU); ctx.stroke();
+        }
+        if (kind === 'XOR') {
+          ctx.beginPath();
+          ctx.moveTo(-18, -14); ctx.quadraticCurveTo(-8, 0, -18, 14);
+          ctx.stroke();
+        }
+        ctx.beginPath();
+        ctx.moveTo(-28, -6); ctx.lineTo(-14, -6);
+        ctx.moveTo(-28, 6); ctx.lineTo(-14, 6);
+        ctx.moveTo(kind === 'NAND' || kind === 'NOR' ? 21 : 14, 0); ctx.lineTo(28, 0);
+        ctx.stroke();
+      }
+    }
+    function drawFF(ctx) {
+      ctx.strokeRect(-18, -16, 36, 32);
+      ctx.beginPath();
+      ctx.moveTo(-28, -8); ctx.lineTo(-18, -8);
+      ctx.moveTo(-28, 8); ctx.lineTo(-18, 8);
+      ctx.moveTo(18, -8); ctx.lineTo(28, -8);
+      ctx.moveTo(18, 8); ctx.lineTo(28, 8);
+      ctx.moveTo(-18, 2); ctx.lineTo(-12, 8); ctx.lineTo(-18, 14);
+      ctx.stroke();
+      label(ctx, 'D', -10, -4);
+      label(ctx, 'Q', 10, -4);
+    }
+    function drawProbe(ctx) {
+      ctx.beginPath();
+      ctx.moveTo(0, 16); ctx.lineTo(0, -4);
+      ctx.moveTo(-6, 4); ctx.lineTo(0, -4); ctx.lineTo(6, 4);
+      ctx.stroke();
+      ctx.strokeRect(-8, -20, 16, 16);
+    }
+    function drawSw(ctx, closed) {
+      ctx.beginPath();
+      ctx.moveTo(-28, 0); ctx.lineTo(-10, 0);
+      ctx.arc(-10, 0, 3, 0, TAU);
+      ctx.moveTo(-8, 0); ctx.lineTo(10, closed ? 0 : -10);
+      ctx.moveTo(10, 0); ctx.arc(10, 0, 3, 0, TAU);
+      ctx.moveTo(13, 0); ctx.lineTo(28, 0);
+      ctx.stroke();
+    }
+    function drawPot(ctx) {
+      drawR(ctx);
+      ctx.beginPath();
+      ctx.moveTo(0, 18); ctx.lineTo(0, 8);
+      ctx.moveTo(-4, 8); ctx.lineTo(0, 2); ctx.lineTo(4, 8);
+      ctx.stroke();
+    }
+    function draw555(ctx) {
+      ctx.strokeRect(-22, -20, 44, 40);
+      label(ctx, '555', 0, 4);
+    }
+    function drawTL(ctx) {
+      ctx.strokeRect(-22, -8, 44, 16);
+      ctx.beginPath();
+      ctx.moveTo(-28, 0); ctx.lineTo(-22, 0);
+      ctx.moveTo(22, 0); ctx.lineTo(28, 0);
+      ctx.stroke();
+      label(ctx, 'TL', 0, 3);
+    }
+    function drawAnt(ctx) {
+      ctx.beginPath();
+      ctx.moveTo(0, 16); ctx.lineTo(0, -8);
+      ctx.moveTo(-10, -8); ctx.lineTo(0, -18); ctx.lineTo(10, -8);
+      ctx.moveTo(-6, 8); ctx.lineTo(6, 8);
+      ctx.stroke();
+    }
+
+    /* Parameter helpers */
+    const ohm = (def) => ({ id: 'R', name: 'Resistance', unit: 'Ω', min: 1e-4, max: 1e12, def, log: true });
+    const far = (def) => ({ id: 'C', name: 'Capacitance', unit: 'F', min: 1e-15, max: 1, def, log: true });
+    const hen = (def) => ({ id: 'L', name: 'Inductance', unit: 'H', min: 1e-12, max: 100, def, log: true });
+    const volt = (id, name, def) => ({ id, name, unit: 'V', min: -1e6, max: 1e6, def });
+    const amp = (id, name, def) => ({ id, name, unit: 'A', min: -1e3, max: 1e3, def, log: false });
+
+    /* Register every v1 part. Stamp functions close over SOLVER helpers
+       defined later — they are assigned after SOL is created. */
+    function kidPhys(s) { return s; }
+    function engPhys(s) { return s; }
+
+    REG.register({
+      id: 'R', name: 'Resistor', cat: 'PASSIVES',
+      kid: 'A narrow pipe. Bigger number = harder for electricity to flow.',
+      eng: 'Linear two-terminal. I = V/R. Stamps g = 1/R into G.',
+      pins: P2('a', 'b'),
+      params: [ohm(1000)],
+      draw: (ctx) => strokeSym(ctx, drawR),
+      geom: 'resistor'
+    });
+    REG.register({
+      id: 'POT', name: 'Potentiometer', cat: 'PASSIVES',
+      kid: 'A resistor with a sliding tap you can turn.',
+      eng: 'Three-terminal divider. Two series resistors; wiper fraction k ∈ [0,1].',
+      pins: [{ id: 'a', x: -28, y: 0 }, { id: 'b', x: 28, y: 0 }, { id: 'w', x: 0, y: 20 }],
+      params: [ohm(10000), { id: 'k', name: 'Wiper', unit: '', min: 0, max: 1, def: 0.5 }],
+      draw: (ctx) => strokeSym(ctx, drawPot),
+      geom: 'pot'
+    });
+    REG.register({
+      id: 'C', name: 'Capacitor', cat: 'PASSIVES',
+      kid: 'A tiny bucket that stores electric charge, then pours it back.',
+      eng: 'i = C dv/dt. DC: open. TRAN (BE): Geq = C/h, Ieq = Geq·v_old.',
+      pins: P2('a', 'b'),
+      params: [far(1e-6)],
+      draw: (ctx) => strokeSym(ctx, drawC),
+      geom: 'cap'
+    });
+    REG.register({
+      id: 'L', name: 'Inductor', cat: 'PASSIVES',
+      kid: 'A coil that hates sudden current changes — it has inertia.',
+      eng: 'v = L di/dt. DC: short. TRAN (BE): Geq = h/L in parallel with Ieq = i_old.',
+      pins: P2('a', 'b'),
+      params: [hen(1e-3)],
+      draw: (ctx) => strokeSym(ctx, drawL),
+      geom: 'inductor'
+    });
+    REG.register({
+      id: 'VDC', name: 'DC Voltage', cat: 'SOURCES',
+      kid: 'A battery. One side is plus, the other minus.',
+      eng: 'Independent voltage source. Extra MNA unknown j. v+ − v− = V.',
+      pins: P2('p', 'n'),
+      params: [volt('V', 'Voltage', 5)],
+      draw: (ctx) => strokeSym(ctx, (c) => drawV(c, false)),
+      geom: 'battery'
+    });
+    REG.register({
+      id: 'VAC', name: 'AC Voltage', cat: 'SOURCES',
+      kid: 'A wiggle battery — voltage goes up and down like a wave.',
+      eng: 'v(t) = A sin(2πf t + φ). AC analysis uses the phasor A∠φ.',
+      pins: P2('p', 'n'),
+      params: [
+        { id: 'A', name: 'Amplitude', unit: 'V', min: 0, max: 1e6, def: 1 },
+        { id: 'f', name: 'Frequency', unit: 'Hz', min: 0, max: 1e12, def: 1000, log: true },
+        { id: 'ph', name: 'Phase', unit: 'deg', min: -180, max: 180, def: 0 }
+      ],
+      draw: (ctx) => strokeSym(ctx, (c) => drawV(c, true)),
+      geom: 'vac'
+    });
+    REG.register({
+      id: 'IDC', name: 'Current Source', cat: 'SOURCES',
+      kid: 'A pump that always pushes the same amount of electricity.',
+      eng: 'Independent current from n → p. Stamps ±I on the RHS.',
+      pins: P2('p', 'n'),
+      params: [amp('I', 'Current', 0.001)],
+      draw: (ctx) => strokeSym(ctx, drawI),
+      geom: 'isrc'
+    });
+    REG.register({
+      id: 'GND', name: 'Ground', cat: 'SOURCES',
+      kid: 'The zero point. Every circuit needs a home for leftover electricity.',
+      eng: 'Forces the connected net to node 0 (datum). Required for a unique MNA solution.',
+      pins: [{ id: 'g', x: 0, y: -16 }],
+      params: [],
+      draw: (ctx) => strokeSym(ctx, drawGnd),
+      geom: 'gnd'
+    });
+    REG.register({
+      id: 'PULSE', name: 'Pulse Gen', cat: 'SOURCES',
+      kid: 'A clock that flips between two voltages, over and over.',
+      eng: 'Piecewise-linear voltage: V1 → V2 after delay, width, period. Extra VS unknown.',
+      pins: P2('p', 'n'),
+      params: [
+        volt('V1', 'Low', 0), volt('V2', 'High', 5),
+        { id: 'Td', name: 'Delay', unit: 's', min: 0, max: 10, def: 0, log: true },
+        { id: 'Pw', name: 'Width', unit: 's', min: 0, max: 10, def: 5e-4, log: true },
+        { id: 'Per', name: 'Period', unit: 's', min: 1e-12, max: 10, def: 1e-3, log: true }
+      ],
+      draw: (ctx) => strokeSym(ctx, (c) => {
+        drawV(c, false);
+        c.beginPath();
+        c.moveTo(-6, 4); c.lineTo(-2, 4); c.lineTo(-2, -4); c.lineTo(4, -4); c.lineTo(4, 4); c.lineTo(6, 4);
+        c.stroke();
+      }),
+      geom: 'pulse'
+    });
+    REG.register({
+      id: 'D', name: 'Diode', cat: 'SEMICONDUCTORS',
+      kid: 'A one-way door for electricity.',
+      eng: 'Shockley: i = Is (e^{v/(n Vt)} − 1). Newton companion g = di/dv, Ieq = i − g v.',
+      pins: P2('a', 'c'),
+      params: [
+        { id: 'Is', name: 'Is', unit: 'A', min: 1e-18, max: 1e-6, def: 1e-14, log: true },
+        { id: 'n', name: 'n', unit: '', min: 0.5, max: 4, def: 1 },
+        { id: 'Rs', name: 'Rs', unit: 'Ω', min: 1e-4, max: 100, def: 1, log: true }
+      ],
+      draw: (ctx) => strokeSym(ctx, (c) => drawDiode(c, false)),
+      geom: 'diode'
+    });
+    REG.register({
+      id: 'Z', name: 'Zener', cat: 'SEMICONDUCTORS',
+      kid: 'A diode that also opens backwards at a set voltage — a voltage clamp.',
+      eng: 'Forward Shockley + reverse breakdown Isz (e^{(−v−Vz)/(n Vt)} − 1).',
+      pins: P2('a', 'c'),
+      params: [
+        { id: 'Is', name: 'Is', unit: 'A', min: 1e-18, max: 1e-6, def: 1e-14, log: true },
+        { id: 'Vz', name: 'Vz', unit: 'V', min: 0.5, max: 200, def: 5.1 },
+        { id: 'Iz', name: 'Isz', unit: 'A', min: 1e-18, max: 1e-3, def: 1e-10, log: true },
+        { id: 'Rs', name: 'Rs', unit: 'Ω', min: 1e-4, max: 100, def: 1, log: true }
+      ],
+      draw: (ctx) => strokeSym(ctx, (c) => {
+        drawDiode(c, false);
+        c.beginPath(); c.moveTo(8, -10); c.lineTo(14, -10); c.moveTo(8, 10); c.lineTo(2, 10); c.stroke();
+      }),
+      geom: 'zener'
+    });
+    REG.register({
+      id: 'LED', name: 'LED', cat: 'SEMICONDUCTORS',
+      kid: 'A diode that makes light when current flows the right way.',
+      eng: 'Shockley diode with n≈2 and optical emission ∝ I_f. Visual only — no photonic solve.',
+      pins: P2('a', 'c'),
+      params: [
+        { id: 'Is', name: 'Is', unit: 'A', min: 1e-22, max: 1e-8, def: 1e-17, log: true },
+        { id: 'n', name: 'n', unit: '', min: 1, max: 4, def: 2 },
+        { id: 'Rs', name: 'Rs', unit: 'Ω', min: 1e-4, max: 100, def: 2, log: true },
+        { id: 'If', name: 'I_full', unit: 'A', min: 1e-4, max: 0.1, def: 0.01, log: true },
+        { id: 'hue', name: 'Hue (LED only)', unit: '', min: 0, max: 360, def: 130 }
+      ],
+      draw: (ctx, st) => {
+        strokeSym(ctx, (c) => drawDiode(c, true));
+        if (st && st.bright > 0.02) {
+          ctx.save();
+          ctx.globalAlpha = 0.25 + 0.75 * st.bright;
+          ctx.fillStyle = 'hsl(' + (st.hue || 130) + ',100%,70%)';
+          ctx.beginPath(); ctx.arc(0, 0, 10 + 10 * st.bright, 0, TAU); ctx.fill();
+          ctx.restore();
+        }
+      },
+      geom: 'led'
+    });
+    REG.register({
+      id: 'NPN', name: 'NPN BJT', cat: 'SEMICONDUCTORS',
+      kid: 'A current amplifier. A tiny base current opens a big collector path.',
+      eng: 'Ebers-Moll transport. iC, iB from vBE, vBC. Jacobian stamped each NR step.',
+      pins: [{ id: 'c', x: 10, y: -22 }, { id: 'b', x: -28, y: 0 }, { id: 'e', x: 10, y: 22 }],
+      params: [
+        { id: 'Is', name: 'Is', unit: 'A', min: 1e-18, max: 1e-9, def: 1e-14, log: true },
+        { id: 'Bf', name: 'βF', unit: '', min: 1, max: 500, def: 100 },
+        { id: 'Br', name: 'βR', unit: '', min: 0.1, max: 50, def: 1 }
+      ],
+      draw: (ctx) => strokeSym(ctx, (c) => drawBJT(c, false)),
+      geom: 'to92'
+    });
+    REG.register({
+      id: 'PNP', name: 'PNP BJT', cat: 'SEMICONDUCTORS',
+      kid: 'Like NPN but the currents flow the other way.',
+      eng: 'Ebers-Moll with polarity of vBE/vBC flipped (PNP).',
+      pins: [{ id: 'c', x: 10, y: -22 }, { id: 'b', x: -28, y: 0 }, { id: 'e', x: 10, y: 22 }],
+      params: [
+        { id: 'Is', name: 'Is', unit: 'A', min: 1e-18, max: 1e-9, def: 1e-14, log: true },
+        { id: 'Bf', name: 'βF', unit: '', min: 1, max: 500, def: 100 },
+        { id: 'Br', name: 'βR', unit: '', min: 0.1, max: 50, def: 1 }
+      ],
+      draw: (ctx) => strokeSym(ctx, (c) => drawBJT(c, true)),
+      geom: 'to92'
+    });
+    REG.register({
+      id: 'NMOS', name: 'N-MOSFET', cat: 'SEMICONDUCTORS',
+      kid: 'A voltage-controlled valve. Gate voltage opens a channel.',
+      eng: 'Shichman-Hodges Level-1. Cutoff / linear / saturation. k = ½ µCox W/L.',
+      pins: [{ id: 'd', x: 8, y: -22 }, { id: 'g', x: -28, y: 0 }, { id: 's', x: 8, y: 22 }],
+      params: [
+        { id: 'Vt', name: 'Vth', unit: 'V', min: -5, max: 5, def: 0.7 },
+        { id: 'k', name: 'k (A/V²)', unit: '', min: 1e-6, max: 1, def: 0.002, log: true },
+        { id: 'lam', name: 'λ', unit: '1/V', min: 0, max: 0.5, def: 0.01 }
+      ],
+      draw: (ctx) => strokeSym(ctx, (c) => drawMOS(c, false)),
+      geom: 'to92'
+    });
+    REG.register({
+      id: 'PMOS', name: 'P-MOSFET', cat: 'SEMICONDUCTORS',
+      kid: 'A MOSFET that turns on when the gate goes down.',
+      eng: 'Level-1 PMOS: polarities of vGS, vDS inverted vs NMOS.',
+      pins: [{ id: 'd', x: 8, y: -22 }, { id: 'g', x: -28, y: 0 }, { id: 's', x: 8, y: 22 }],
+      params: [
+        { id: 'Vt', name: 'Vth', unit: 'V', min: -5, max: 5, def: -0.7 },
+        { id: 'k', name: 'k (A/V²)', unit: '', min: 1e-6, max: 1, def: 0.002, log: true },
+        { id: 'lam', name: 'λ', unit: '1/V', min: 0, max: 0.5, def: 0.01 }
+      ],
+      draw: (ctx) => strokeSym(ctx, (c) => drawMOS(c, true)),
+      geom: 'to92'
+    });
+    REG.register({
+      id: 'JFET', name: 'N-JFET', cat: 'SEMICONDUCTORS',
+      kid: 'An old-school voltage valve that is ON until you pinch it off.',
+      eng: 'Shockley JFET: Id = Idss (1 − vGS/Vp)² in sat, with Vp < 0 for N-channel.',
+      pins: [{ id: 'd', x: 8, y: -22 }, { id: 'g', x: -28, y: 0 }, { id: 's', x: 8, y: 22 }],
+      params: [
+        { id: 'Idss', name: 'Idss', unit: 'A', min: 1e-6, max: 0.1, def: 0.005, log: true },
+        { id: 'Vp', name: 'Vp', unit: 'V', min: -20, max: -0.2, def: -2 }
+      ],
+      draw: (ctx) => strokeSym(ctx, (c) => {
+        drawMOS(c, false);
+        c.beginPath(); c.moveTo(-14, -4); c.lineTo(-10, 0); c.lineTo(-14, 4); c.stroke();
+      }),
+      geom: 'to92'
+    });
+    REG.register({
+      id: 'OA', name: 'Op-Amp', cat: 'AMPLIFIERS',
+      kid: 'A super helper that makes small voltage differences huge — until it hits the rails.',
+      eng: 'VCVS: Vo = sat(A·(v+ − v− + Vos), Vmin, Vmax). Finite A, rail clamp, no GBW.',
+      pins: [
+        { id: 'inp', x: -28, y: -8 }, { id: 'inn', x: -28, y: 8 },
+        { id: 'out', x: 28, y: 0 }
+      ],
+      params: [
+        { id: 'A', name: 'Gain', unit: '', min: 1, max: 1e7, def: 1e5, log: true },
+        { id: 'Vos', name: 'Offset', unit: 'V', min: -0.1, max: 0.1, def: 0 },
+        volt('Vmax', 'Rail+', 15), volt('Vmin', 'Rail−', -15)
+      ],
+      draw: (ctx) => strokeSym(ctx, drawOA),
+      geom: 'dip8'
+    });
+    ['AND', 'OR', 'NOT', 'NAND', 'NOR', 'XOR'].forEach((g) => {
+      const two = g !== 'NOT';
+      REG.register({
+        id: g, name: g, cat: 'DIGITAL',
+        kid: 'A thinking brick. ' + g + ' decides 1 or 0 from its inputs.',
+        eng: 'Event-driven Boolean. Mixed-signal: Vin > VIH ⇒ 1, Vin < VIL ⇒ 0. Output is a voltage source.',
+        pins: two
+          ? [{ id: 'a', x: -28, y: -6 }, { id: 'b', x: -28, y: 6 }, { id: 'y', x: 28, y: 0 }]
+          : [{ id: 'a', x: -28, y: 0 }, { id: 'y', x: 28, y: 0 }],
+        params: [
+          volt('Vdd', 'Vdd', 5),
+          { id: 'td', name: 'Delay', unit: 's', min: 0, max: 1, def: 1e-8, log: true }
+        ],
+        draw: (ctx) => strokeSym(ctx, (c) => drawGate(c, g)),
+        geom: 'dip14',
+        digital: true
+      });
+    });
+    REG.register({
+      id: 'DLATCH', name: 'D Latch', cat: 'DIGITAL',
+      kid: 'Remembers one bit while Enable is on. Freezes it when Enable is off.',
+      eng: 'Level-sensitive: if E=1 then Q←D, else hold. Output VS + complementary /Q.',
+      pins: [
+        { id: 'd', x: -28, y: -8 }, { id: 'e', x: -28, y: 8 },
+        { id: 'q', x: 28, y: -8 }, { id: 'qn', x: 28, y: 8 }
+      ],
+      params: [volt('Vdd', 'Vdd', 5), { id: 'td', name: 'Delay', unit: 's', min: 0, max: 1, def: 2e-8, log: true }],
+      draw: (ctx) => strokeSym(ctx, (c) => { drawFF(c); label(c, 'L', 0, 12); }),
+      geom: 'dip14', digital: true
+    });
+    REG.register({
+      id: 'DFF', name: 'D Flip-Flop', cat: 'DIGITAL',
+      kid: 'Remembers one bit every time the clock ticks up.',
+      eng: 'Positive-edge: Q←D on CLK 0→1. Master-slave conceptual.',
+      pins: [
+        { id: 'd', x: -28, y: -8 }, { id: 'clk', x: -28, y: 8 },
+        { id: 'q', x: 28, y: -8 }, { id: 'qn', x: 28, y: 8 }
+      ],
+      params: [volt('Vdd', 'Vdd', 5), { id: 'td', name: 'Delay', unit: 's', min: 0, max: 1, def: 2e-8, log: true }],
+      draw: (ctx) => strokeSym(ctx, drawFF),
+      geom: 'dip14', digital: true
+    });
+    REG.register({
+      id: 'CTR', name: 'Counter4', cat: 'DIGITAL',
+      kid: 'A clicker that counts clock ticks in binary: 0000, 0001, 0010…',
+      eng: '4-bit synchronous up-counter. Q0 LSB. Asynchronous reset active-high.',
+      pins: [
+        { id: 'clk', x: -28, y: -10 }, { id: 'rst', x: -28, y: 10 },
+        { id: 'q0', x: 28, y: -15 }, { id: 'q1', x: 28, y: -5 },
+        { id: 'q2', x: 28, y: 5 }, { id: 'q3', x: 28, y: 15 }
+      ],
+      params: [volt('Vdd', 'Vdd', 5), { id: 'td', name: 'Delay', unit: 's', min: 0, max: 1, def: 5e-8, log: true }],
+      draw: (ctx) => strokeSym(ctx, (c) => { c.strokeRect(-18, -18, 36, 36); label(c, 'CTR4', 0, 4); }),
+      geom: 'dip14', digital: true
+    });
+    REG.register({
+      id: 'VM', name: 'Voltmeter', cat: 'INSTRUMENTS',
+      kid: 'Measures how hard electricity is pushing between two points.',
+      eng: '1 GΩ sense. Displays v_p − v_n. Does not disturb the circuit.',
+      pins: P2('p', 'n'),
+      params: [],
+      draw: (ctx, st) => {
+        strokeSym(ctx, (c) => { c.beginPath(); c.arc(0, 0, 14, 0, TAU); c.moveTo(-28, 0); c.lineTo(-14, 0); c.moveTo(14, 0); c.lineTo(28, 0); c.stroke(); label(c, 'V', 0, 4); });
+        if (st && st.text) label(ctx, st.text, 0, 26);
+      },
+      geom: 'meter'
+    });
+    REG.register({
+      id: 'AM', name: 'Ammeter', cat: 'INSTRUMENTS',
+      kid: 'Measures how much electricity is flowing through a wire.',
+      eng: 'Series 1 mΩ shunt. Current = (v_p − v_n)/Rshunt.',
+      pins: P2('p', 'n'),
+      params: [{ id: 'Rs', name: 'Shunt', unit: 'Ω', min: 1e-6, max: 1, def: 0.001, log: true }],
+      draw: (ctx, st) => {
+        strokeSym(ctx, (c) => { c.beginPath(); c.arc(0, 0, 14, 0, TAU); c.moveTo(-28, 0); c.lineTo(-14, 0); c.moveTo(14, 0); c.lineTo(28, 0); c.stroke(); label(c, 'A', 0, 4); });
+        if (st && st.text) label(ctx, st.text, 0, 26);
+      },
+      geom: 'meter'
+    });
+    REG.register({
+      id: 'PRB', name: 'Probe', cat: 'INSTRUMENTS',
+      kid: 'A magic stick that draws the voltage over time on the scope.',
+      eng: 'High-Z node sampler. Channels the connected net onto the oscilloscope.',
+      pins: [{ id: 'p', x: 0, y: 16 }],
+      params: [{ id: 'ch', name: 'Channel', unit: '', min: 1, max: 4, def: 1 }],
+      draw: (ctx) => strokeSym(ctx, drawProbe),
+      geom: 'probe'
+    });
+    REG.register({
+      id: 'SW', name: 'Switch', cat: 'IO',
+      kid: 'A gate you open or close by clicking it.',
+      eng: 'R_on = 0.01 Ω, R_off = 1e12 Ω. Toggle via inspector or double-click.',
+      pins: P2('a', 'b'),
+      params: [{ id: 'on', name: 'Closed', unit: '', min: 0, max: 1, def: 0 }],
+      draw: (ctx, st) => strokeSym(ctx, (c) => drawSw(c, st && st.on)),
+      geom: 'switch'
+    });
+    REG.register({
+      id: 'BTN', name: 'Button', cat: 'IO',
+      kid: 'Hold it to close the circuit. Let go and it opens.',
+      eng: 'Momentary. Closed while pointer is down on the symbol.',
+      pins: P2('a', 'b'),
+      params: [],
+      draw: (ctx, st) => strokeSym(ctx, (c) => {
+        drawSw(c, st && st.on);
+        c.strokeRect(-8, -18, 16, 10);
+      }),
+      geom: 'button'
+    });
+    REG.register({
+      id: 'VCC', name: 'VCC Rail', cat: 'IO',
+      kid: 'The plus power highway.',
+      eng: 'Voltage source from this pin to implicit ground (node 0).',
+      pins: [{ id: 'p', x: 0, y: 16 }],
+      params: [volt('V', 'Voltage', 5)],
+      draw: (ctx) => strokeSym(ctx, (c) => {
+        c.beginPath(); c.moveTo(0, 16); c.lineTo(0, -8);
+        c.moveTo(-8, -8); c.lineTo(8, -8); c.stroke();
+        label(c, 'VCC', 0, -14);
+      }),
+      geom: 'rail'
+    });
+    REG.register({
+      id: 'IC555', name: '555 Timer', cat: 'ADVANCED',
+      kid: 'A famous chip that blinks, beeps, and makes clocks.',
+      eng: 'Conceptual: comparators at ⅓ and ⅔ VCC, SR latch, open-collector discharge. Not a full transistor-level 555.',
+      pins: [
+        { id: 'gnd', x: -28, y: 16 }, { id: 'tr', x: -28, y: 6 },
+        { id: 'out', x: -28, y: -6 }, { id: 'rst', x: -28, y: -16 },
+        { id: 'cv', x: 28, y: -16 }, { id: 'th', x: 28, y: -6 },
+        { id: 'dis', x: 28, y: 6 }, { id: 'vcc', x: 28, y: 16 }
+      ],
+      params: [volt('Vcc', 'VCC', 5)],
+      draw: (ctx) => strokeSym(ctx, draw555),
+      geom: 'dip8'
+    });
+    REG.register({
+      id: 'VCVS', name: 'VCVS', cat: 'ADVANCED',
+      kid: 'A voltage that copies another voltage, times a number.',
+      eng: 'vo = µ (vc+ − vc−). Extra branch unknown. Classic B / D stamp.',
+      pins: [
+        { id: 'cp', x: -28, y: -10 }, { id: 'cn', x: -28, y: 10 },
+        { id: 'op', x: 28, y: -10 }, { id: 'on', x: 28, y: 10 }
+      ],
+      params: [{ id: 'mu', name: 'µ', unit: '', min: -1e6, max: 1e6, def: 1 }],
+      draw: (ctx) => strokeSym(ctx, (c) => {
+        c.beginPath(); c.moveTo(8, -14); c.lineTo(8, 14); c.lineTo(26, 0); c.closePath();
+        c.moveTo(-28, -10); c.lineTo(-8, -10); c.moveTo(-28, 10); c.lineTo(-8, 10);
+        c.moveTo(26, 0); c.lineTo(28, -10); c.moveTo(26, 0); c.lineTo(28, 10);
+        c.stroke();
+        label(c, 'µ', 0, 4);
+      }),
+      geom: 'diamond'
+    });
+    REG.register({
+      id: 'VCCS', name: 'VCCS', cat: 'ADVANCED',
+      kid: 'A voltage that decides how much current a pump should push.',
+      eng: 'io = gm (vc+ − vc−). Transconductance stamp, no extra unknown.',
+      pins: [
+        { id: 'cp', x: -28, y: -10 }, { id: 'cn', x: -28, y: 10 },
+        { id: 'op', x: 28, y: -10 }, { id: 'on', x: 28, y: 10 }
+      ],
+      params: [{ id: 'gm', name: 'gm', unit: 'S', min: -10, max: 10, def: 0.001 }],
+      draw: (ctx) => strokeSym(ctx, (c) => {
+        c.beginPath(); c.moveTo(4, -12); c.lineTo(4, 12); c.lineTo(22, 0); c.closePath();
+        c.moveTo(-28, -10); c.lineTo(-6, -10); c.moveTo(-28, 10); c.lineTo(-6, 10);
+        c.moveTo(22, 0); c.lineTo(28, -10); c.moveTo(22, 0); c.lineTo(28, 10);
+        c.stroke();
+        label(c, 'gm', -6, 4);
+      }),
+      geom: 'diamond'
+    });
+    REG.register({
+      id: 'CCVS', name: 'CCVS', cat: 'ADVANCED',
+      kid: 'A voltage made from a current somewhere else.',
+      eng: 'vo = rm · ic. Sensing branch is a 0 V source between cp/cn.',
+      pins: [
+        { id: 'cp', x: -28, y: -10 }, { id: 'cn', x: -28, y: 10 },
+        { id: 'op', x: 28, y: -10 }, { id: 'on', x: 28, y: 10 }
+      ],
+      params: [{ id: 'rm', name: 'rm', unit: 'Ω', min: -1e6, max: 1e6, def: 1000 }],
+      draw: (ctx) => strokeSym(ctx, (c) => { c.strokeRect(-8, -12, 20, 24); label(c, 'rm', 2, 4); }),
+      geom: 'diamond'
+    });
+    REG.register({
+      id: 'CCCS', name: 'CCCS', cat: 'ADVANCED',
+      kid: 'A current pump controlled by another current.',
+      eng: 'io = β · ic. Sense branch 0 V VS; output is a VCCS of that current.',
+      pins: [
+        { id: 'cp', x: -28, y: -10 }, { id: 'cn', x: -28, y: 10 },
+        { id: 'op', x: 28, y: -10 }, { id: 'on', x: 28, y: 10 }
+      ],
+      params: [{ id: 'beta', name: 'β', unit: '', min: -1e6, max: 1e6, def: 10 }],
+      draw: (ctx) => strokeSym(ctx, (c) => { c.strokeRect(-8, -12, 20, 24); label(c, 'β', 2, 4); }),
+      geom: 'diamond'
+    });
+    REG.register({
+      id: 'TLIN', name: 'T-Line stub', cat: 'ADVANCED',
+      kid: 'A long wire where electricity takes time to arrive — like an echo.',
+      eng: 'Lumped: series Z0 + delay buffer of Td. Not a full telegrapher PDE.',
+      pins: P2('a', 'b'),
+      params: [
+        { id: 'Z0', name: 'Z0', unit: 'Ω', min: 1, max: 1000, def: 50 },
+        { id: 'Td', name: 'Delay', unit: 's', min: 1e-12, max: 1e-3, def: 1e-9, log: true }
+      ],
+      draw: (ctx) => strokeSym(ctx, drawTL),
+      geom: 'tline'
+    });
+    REG.register({
+      id: 'VLSI', name: 'VLSI Gate', cat: 'ADVANCED',
+      kid: 'A microscopic thinking brick with a tiny delay and a power cost.',
+      eng: 'Boolean + tp delay + E = ½ C Vdd² per transition (educational energy).',
+      pins: [{ id: 'a', x: -28, y: -6 }, { id: 'b', x: -28, y: 6 }, { id: 'y', x: 28, y: 0 }],
+      params: [
+        volt('Vdd', 'Vdd', 1.2),
+        { id: 'td', name: 'tp', unit: 's', min: 1e-15, max: 1e-6, def: 2e-11, log: true },
+        { id: 'C', name: 'Cload', unit: 'F', min: 1e-18, max: 1e-9, def: 5e-15, log: true },
+        { id: 'fn', name: 'Fun', unit: '', min: 0, max: 3, def: 0 }
+      ],
+      draw: (ctx) => strokeSym(ctx, (c) => { c.strokeRect(-16, -12, 32, 24); label(c, 'VLSI', 0, 4); }),
+      geom: 'die', digital: true
+    });
+    REG.register({
+      id: 'ANT', name: 'Antenna', cat: 'ADVANCED',
+      kid: 'A metal stick that throws radio into space — or catches it.',
+      eng: 'Radiation resistance Rrad to ground + optional open-circuit receive source Voc.',
+      pins: [{ id: 'f', x: 0, y: 16 }],
+      params: [
+        { id: 'Rr', name: 'Rrad', unit: 'Ω', min: 0.1, max: 1000, def: 73 },
+        { id: 'Voc', name: 'Voc', unit: 'V', min: 0, max: 10, def: 0 },
+        { id: 'f', name: 'f_rx', unit: 'Hz', min: 0, max: 1e12, def: 1e6, log: true }
+      ],
+      draw: (ctx) => strokeSym(ctx, drawAnt),
+      geom: 'antenna'
+    });
+
+    $('libcount').textContent = String(REG.order.length);
+
+    /* ============================ CIRCUIT ================================ */
+    const CKT = {
+      comps: [],
+      wires: [],
+      junctions: [],
+      sel: null,
+      hover: null,
+      placing: null,
+      wiring: null,
+      tool: 'select',
+      snap: 10
+    };
+
+    function defParams(type) {
+      const d = REG.get(type);
+      const o = {};
+      for (const p of d.params) o[p.id] = p.def;
+      return o;
+    }
+    function addComp(type, x, y) {
+      const d = REG.get(type);
+      if (!d) return null;
+      const c = {
+        id: uid(), type, x: snap(x), y: snap(y), rot: 0,
+        z: 0, params: defParams(type), state: {}
+      };
+      CKT.comps.push(c);
+      AUD.place();
+      return c;
+    }
+    function snap(v) {
+      const s = CKT.snap;
+      return Math.round(v / s) * s;
+    }
+    function findComp(id) { return CKT.comps.find((c) => c.id === id); }
+    function removeSel() {
+      if (!CKT.sel) return;
+      if (CKT.sel.kind === 'comp') {
+        const id = CKT.sel.id;
+        CKT.comps = CKT.comps.filter((c) => c.id !== id);
+        CKT.wires = CKT.wires.filter((w) => !endUses(w.a, id) && !endUses(w.b, id));
+      } else if (CKT.sel.kind === 'wire') {
+        CKT.wires = CKT.wires.filter((w) => w.id !== CKT.sel.id);
+      } else if (CKT.sel.kind === 'junc') {
+        const id = CKT.sel.id;
+        CKT.junctions = CKT.junctions.filter((j) => j.id !== id);
+        CKT.wires = CKT.wires.filter((w) => !endUses(w.a, id) && !endUses(w.b, id));
+      }
+      CKT.sel = null;
+      pushUndo();
+      renderLib();
+      refreshSolve();
+      inspect();
+    }
+    function endUses(end, id) {
+      return (end.kind === 'comp' || end.kind === 'junc') && end.id === id;
+    }
+
+    /* Connectivity: union-find over pins and junctions. Ground symbols
+       and VCC's implicit reference force net 0. */
+    function netsOf() {
+      const parent = new Map();
+      const key = (k) => k.kind + ':' + k.id + (k.pin ? ':' + k.pin : '');
+      function find(a) {
+        if (!parent.has(a)) parent.set(a, a);
+        if (parent.get(a) !== a) parent.set(a, find(parent.get(a)));
+        return parent.get(a);
+      }
+      function uni(a, b) { parent.set(find(a), find(b)); }
+      for (const c of CKT.comps) {
+        const d = REG.get(c.type);
+        for (const p of d.pins) find(key({ kind: 'comp', id: c.id, pin: p.id }));
+      }
+      for (const j of CKT.junctions) find(key({ kind: 'junc', id: j.id }));
+      for (const w of CKT.wires) uni(key(w.a), key(w.b));
+      const gndRoots = new Set();
+      for (const c of CKT.comps) {
+        if (c.type === 'GND') gndRoots.add(find(key({ kind: 'comp', id: c.id, pin: 'g' })));
+      }
+      const rootToNet = new Map();
+      let n = 1;
+      const assign = (root) => {
+        if (gndRoots.has(root)) { rootToNet.set(root, 0); return 0; }
+        if (!rootToNet.has(root)) rootToNet.set(root, n++);
+        return rootToNet.get(root);
+      };
+      const pinNode = new Map();
+      for (const c of CKT.comps) {
+        const d = REG.get(c.type);
+        for (const p of d.pins) {
+          const r = find(key({ kind: 'comp', id: c.id, pin: p.id }));
+          pinNode.set(c.id + ':' + p.id, assign(r));
+        }
+      }
+      const jNode = new Map();
+      for (const j of CKT.junctions) {
+        jNode.set(j.id, assign(find(key({ kind: 'junc', id: j.id }))));
+      }
+      return { pinNode, jNode, nNodes: n, nNets: n };
+    }
+    function nodeOf(c, pin) {
+      return CKT._map ? CKT._map.pinNode.get(c.id + ':' + pin) : 0;
+    }
+
+    /* =============================== UNDO ================================ */
+    const HIST = { stack: [], i: -1 };
+    function snapshot() {
+      return JSON.stringify({
+        comps: CKT.comps, wires: CKT.wires, junctions: CKT.junctions, next: NF._id
+      });
+    }
+    function pushUndo() {
+      HIST.stack = HIST.stack.slice(0, HIST.i + 1);
+      HIST.stack.push(snapshot());
+      if (HIST.stack.length > 50) HIST.stack.shift();
+      HIST.i = HIST.stack.length - 1;
+    }
+    function restoreSnap(s) {
+      const o = JSON.parse(s);
+      CKT.comps = o.comps; CKT.wires = o.wires; CKT.junctions = o.junctions;
+      NF._id = o.next || NF._id;
+      CKT.sel = null;
+      inspect();
+    }
+    function undo() {
+      if (HIST.i <= 0) return;
+      HIST.i--; restoreSnap(HIST.stack[HIST.i]);
+    }
+    function redo() {
+      if (HIST.i >= HIST.stack.length - 1) return;
+      HIST.i++; restoreSnap(HIST.stack[HIST.i]);
+    }
+
+    /* ============================ SCHEMATIC ============================== */
+    const SCH = {
+      camX: 0, camY: 0, zoom: 1.15,
+      mx: 0, my: 0, wx: 0, wy: 0,
+      drag: null,
+      dpr: 1
+    };
+    /* Screen (clientX/clientY or touch) → world, in CSS pixels.
+       Must NOT use canvas backing-store width (cv.width = cssW * dpr).
+       That path multiplied the click offset by devicePixelRatio and
+       placed parts away from the cursor on any HiDPI / Windows-scaled display.
+
+       Drawing uses:
+         ctx.setTransform(dpr,…);  // CSS-pixel space after this
+         ctx.translate(cssW/2, cssH/2);
+         ctx.scale(zoom, zoom);
+         ctx.translate(-camX, -camY);
+       Inverse: world = (css - center) / zoom + cam */
+    function worldFromRect(clientX, clientY, rect, zoom, camX, camY) {
+      const cssW = rect.width || 1;
+      const cssH = rect.height || 1;
+      return {
+        x: (clientX - rect.left - cssW / 2) / zoom + camX,
+        y: (clientY - rect.top - cssH / 2) / zoom + camY
+      };
+    }
+    function worldFrom(clientX, clientY) {
+      return worldFromRect(
+        clientX, clientY,
+        $('schematic').getBoundingClientRect(),
+        SCH.zoom, SCH.camX, SCH.camY
+      );
+    }
+    function hitPin(wx, wy) {
+      const rad = NF.mode === 'kid' ? 12 : 8;
+      for (const c of CKT.comps) {
+        const d = REG.get(c.type);
+        for (const p of d.pins) {
+          const q = pinWorld(c, p);
+          if (hypot(wx - q.x, wy - q.y) <= rad) return { kind: 'comp', id: c.id, pin: p.id, x: q.x, y: q.y };
+        }
+      }
+      for (const j of CKT.junctions) {
+        if (hypot(wx - j.x, wy - j.y) <= rad) return { kind: 'junc', id: j.id, x: j.x, y: j.y };
+      }
+      return null;
+    }
+    function hitComp(wx, wy) {
+      for (let i = CKT.comps.length - 1; i >= 0; i--) {
+        const c = CKT.comps[i];
+        if (Math.abs(wx - c.x) < 30 && Math.abs(wy - c.y) < 28) return c;
+      }
+      return null;
+    }
+    function hitWire(wx, wy) {
+      for (const w of CKT.wires) {
+        const pts = wirePts(w);
+        for (let i = 1; i < pts.length; i++) {
+          if (distSeg(wx, wy, pts[i - 1], pts[i]) < 5) return w;
+        }
+      }
+      return null;
+    }
+    function endPos(end) {
+      if (end.kind === 'junc') {
+        const j = CKT.junctions.find((x) => x.id === end.id);
+        return j ? { x: j.x, y: j.y } : { x: 0, y: 0 };
+      }
+      const c = findComp(end.id);
+      if (!c) return { x: 0, y: 0 };
+      const d = REG.get(c.type);
+      const p = d.pins.find((q) => q.id === end.pin);
+      return pinWorld(c, p);
+    }
+    function wirePts(w) {
+      const a = endPos(w.a), b = endPos(w.b);
+      return [a].concat(w.pts || [], [b]);
+    }
+    function distSeg(x, y, a, b) {
+      const dx = b.x - a.x, dy = b.y - a.y;
+      const l2 = dx * dx + dy * dy || 1;
+      let t = ((x - a.x) * dx + (y - a.y) * dy) / l2;
+      t = clamp(t, 0, 1);
+      return hypot(x - (a.x + t * dx), y - (a.y + t * dy));
+    }
+
+    function drawSchematic() {
+      const cv = $('schematic');
+      const ctx = cv.getContext('2d');
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      SCH.dpr = dpr;
+      const w = cv.clientWidth, h = cv.clientHeight;
+      if (cv.width !== (w * dpr | 0) || cv.height !== (h * dpr | 0)) {
+        cv.width = w * dpr | 0; cv.height = h * dpr | 0;
+      }
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.fillStyle = '#000';
+      ctx.fillRect(0, 0, w, h);
+
+      ctx.save();
+      ctx.translate(w / 2, h / 2);
+      ctx.scale(SCH.zoom, SCH.zoom);
+      ctx.translate(-SCH.camX, -SCH.camY);
+
+      /* grid */
+      const gs = 10;
+      const x0 = SCH.camX - w / (2 * SCH.zoom);
+      const y0 = SCH.camY - h / (2 * SCH.zoom);
+      const x1 = SCH.camX + w / (2 * SCH.zoom);
+      const y1 = SCH.camY + h / (2 * SCH.zoom);
+      ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+      ctx.lineWidth = 1 / SCH.zoom;
+      ctx.beginPath();
+      for (let x = Math.floor(x0 / gs) * gs; x < x1; x += gs) {
+        ctx.moveTo(x, y0); ctx.lineTo(x, y1);
+      }
+      for (let y = Math.floor(y0 / gs) * gs; y < y1; y += gs) {
+        ctx.moveTo(x0, y); ctx.lineTo(x1, y);
+      }
+      ctx.stroke();
+      ctx.strokeStyle = 'rgba(255,255,255,0.14)';
+      ctx.beginPath();
+      for (let x = Math.floor(x0 / 50) * 50; x < x1; x += 50) {
+        ctx.moveTo(x, y0); ctx.lineTo(x, y1);
+      }
+      for (let y = Math.floor(y0 / 50) * 50; y < y1; y += 50) {
+        ctx.moveTo(x0, y); ctx.lineTo(x1, y);
+      }
+      ctx.stroke();
+
+      /* wires + electron dots */
+      for (const w of CKT.wires) {
+        const pts = wirePts(w);
+        const sel = CKT.sel && CKT.sel.kind === 'wire' && CKT.sel.id === w.id;
+        ctx.strokeStyle = sel ? '#fff' : 'rgba(255,255,255,0.85)';
+        ctx.lineWidth = (sel ? 2.4 : 1.6) / SCH.zoom * (NF.mode === 'kid' ? 1.4 : 1);
+        ctx.beginPath();
+        ctx.moveTo(pts[0].x, pts[0].y);
+        for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
+        ctx.stroke();
+        const I = w._I || 0;
+        if (Math.abs(I) > 1e-9) {
+          const len = pathLen(pts);
+          const n = clamp(Math.round(len / 22), 2, 10);
+          const ph = (NF.t * 40 * Math.sign(I) * (1 + Math.log10(1 + Math.abs(I) * 100))) % 1;
+          ctx.fillStyle = '#fff';
+          for (let k = 0; k < n; k++) {
+            const p = pathAt(pts, ((k / n) + ph + 1) % 1);
+            ctx.fillRect(p.x - 1.4, p.y - 1.4, 2.8, 2.8);
+          }
+        }
+      }
+      if (CKT.wiring) {
+        const a = CKT.wiring.start;
+        ctx.strokeStyle = '#fff';
+        ctx.setLineDash([4 / SCH.zoom, 4 / SCH.zoom]);
+        ctx.beginPath();
+        ctx.moveTo(a.x, a.y);
+        const pts = CKT.wiring.pts;
+        for (const p of pts) ctx.lineTo(p.x, p.y);
+        ctx.lineTo(snap(SCH.wx), snap(SCH.wy));
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
+
+      for (const j of CKT.junctions) {
+        ctx.fillStyle = '#fff';
+        ctx.fillRect(j.x - 3, j.y - 3, 6, 6);
+      }
+
+      /* components */
+      for (const c of CKT.comps) {
+        const d = REG.get(c.type);
+        ctx.save();
+        ctx.translate(c.x, c.y);
+        ctx.rotate(c.rot * Math.PI / 2);
+        if (CKT.sel && CKT.sel.kind === 'comp' && CKT.sel.id === c.id) {
+          ctx.strokeStyle = '#fff';
+          ctx.globalAlpha = 0.25;
+          ctx.strokeRect(-32, -26, 64, 52);
+          ctx.globalAlpha = 1;
+        }
+        const st = visualState(c);
+        d.draw(ctx, st);
+        pinsDots(ctx, d.pins);
+        ctx.restore();
+
+        /* live voltage tags in engineer mode, glow in kid */
+        if (SOL.last && SOL.last.ok) {
+          const d2 = REG.get(c.type);
+          for (const p of d2.pins) {
+            const n = nodeOf(c, p.id);
+            const v = SOL.vNode(n);
+            const q = pinWorld(c, p);
+            if (NF.mode === 'engineer') {
+              ctx.fillStyle = 'rgba(255,255,255,0.7)';
+              ctx.font = (8 / SCH.zoom * 1.1) + 'px ui-monospace, monospace';
+              ctx.fillText(fmt(v, 2) + 'V', q.x + 4, q.y - 4);
+            }
+          }
+        }
+      }
+
+      if (CKT.placing) {
+        const d = REG.get(CKT.placing);
+        const gx = snap(SCH.wx), gy = snap(SCH.wy);
+        ctx.save();
+        ctx.strokeStyle = '#fff';
+        ctx.globalAlpha = 0.45;
+        ctx.lineWidth = 1 / SCH.zoom;
+        ctx.beginPath();
+        ctx.moveTo(gx - 16, gy); ctx.lineTo(gx + 16, gy);
+        ctx.moveTo(gx, gy - 16); ctx.lineTo(gx, gy + 16);
+        ctx.stroke();
+        ctx.strokeRect(gx - 3, gy - 3, 6, 6);
+        ctx.globalAlpha = 0.55;
+        ctx.translate(gx, gy);
+        d.draw(ctx, {});
+        ctx.restore();
+      }
+
+      ctx.restore();
+      $('cross').textContent =
+        (NF.view === 'gl' ? 'ORB 3D' : 'GRID ' + CKT.snap) +
+        '  ·  ' + SCH.wx.toFixed(0) + ',' + SCH.wy.toFixed(0) +
+        '  ·  t=' + fmtU(NF.t, 's') +
+        (SOL.last && !SOL.last.ok ? '  ·  NO CONVERGE' : '');
+    }
+    function pathLen(pts) {
+      let L = 0;
+      for (let i = 1; i < pts.length; i++) L += hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y);
+      return L || 1;
+    }
+    function pathAt(pts, u) {
+      let L = pathLen(pts), d = u * L;
+      for (let i = 1; i < pts.length; i++) {
+        const s = hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y);
+        if (d <= s) {
+          const t = s ? d / s : 0;
+          return { x: lerp(pts[i - 1].x, pts[i].x, t), y: lerp(pts[i - 1].y, pts[i].y, t) };
+        }
+        d -= s;
+      }
+      return pts[pts.length - 1];
+    }
+    function visualState(c) {
+      const st = Object.assign({}, c.state);
+      if (c.type === 'LED') {
+        st.bright = c.state.bright || 0;
+        st.hue = c.params.hue;
+      }
+      if (c.type === 'SW') st.on = !!c.params.on;
+      if (c.type === 'BTN') st.on = !!c.state.on;
+      if (c.type === 'VM' && SOL.last) st.text = fmtU(SOL.vPin(c, 'p') - SOL.vPin(c, 'n'), 'V');
+      if (c.type === 'AM' && SOL.last) st.text = fmtU(c.state.I || 0, 'A');
+      return st;
+    }
+
+    /* pointer on schematic */
+    function bindSchematic() {
+      const cv = $('schematic');
+      let pointers = new Map();
+      let lastPinch = 0;
+      cv.addEventListener('contextmenu', (e) => e.preventDefault());
+      cv.addEventListener('pointerdown', (e) => {
+        AUD.unlock();
+        cv.setPointerCapture(e.pointerId);
+        pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+        const w = worldFrom(e.clientX, e.clientY);
+        SCH.wx = w.x; SCH.wy = w.y;
+        if (e.button === 1 || e.button === 2 || e.altKey) {
+          SCH.drag = { kind: 'pan', x: e.clientX, y: e.clientY, cx: SCH.camX, cy: SCH.camY };
+          return;
+        }
+        if (CKT.placing) {
+          const c = addComp(CKT.placing, w.x, w.y);
+          CKT.sel = { kind: 'comp', id: c.id };
+          if (!e.shiftKey) CKT.placing = null;
+          pushUndo(); refreshSolve(); inspect(); return;
+        }
+        const pin = hitPin(w.x, w.y);
+        if (pin) {
+          CKT.wiring = { start: pin, pts: [] };
+          return;
+        }
+        const c = hitComp(w.x, w.y);
+        if (c) {
+          CKT.sel = { kind: 'comp', id: c.id };
+          SCH.drag = { kind: 'move', id: c.id, dx: w.x - c.x, dy: w.y - c.y };
+          if (c.type === 'BTN') c.state.on = 1;
+          if (c.type === 'SW' && e.detail === 2) { c.params.on = c.params.on ? 0 : 1; pushUndo(); }
+          inspect(); return;
+        }
+        const wr = hitWire(w.x, w.y);
+        if (wr) { CKT.sel = { kind: 'wire', id: wr.id }; inspect(); return; }
+        CKT.sel = null; inspect();
+        SCH.drag = { kind: 'pan', x: e.clientX, y: e.clientY, cx: SCH.camX, cy: SCH.camY };
+      });
+      cv.addEventListener('pointermove', (e) => {
+        pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+        if (pointers.size === 2) {
+          const arr = [...pointers.values()];
+          const d = hypot(arr[0].x - arr[1].x, arr[0].y - arr[1].y);
+          if (lastPinch) {
+            const f = d / lastPinch;
+            SCH.zoom = clamp(SCH.zoom * f, 0.25, 6);
+          }
+          lastPinch = d;
+          return;
+        }
+        const w = worldFrom(e.clientX, e.clientY);
+        SCH.wx = w.x; SCH.wy = w.y; SCH.mx = e.clientX; SCH.my = e.clientY;
+        if (SCH.drag && SCH.drag.kind === 'pan') {
+          SCH.camX = SCH.drag.cx - (e.clientX - SCH.drag.x) / SCH.zoom;
+          SCH.camY = SCH.drag.cy - (e.clientY - SCH.drag.y) / SCH.zoom;
+        } else if (SCH.drag && SCH.drag.kind === 'move') {
+          const c = findComp(SCH.drag.id);
+          if (c) { c.x = snap(w.x - SCH.drag.dx); c.y = snap(w.y - SCH.drag.dy); }
+        }
+      });
+      const up = (e) => {
+        pointers.delete(e.pointerId);
+        if (pointers.size < 2) lastPinch = 0;
+        const w = worldFrom(e.clientX, e.clientY);
+        if (CKT.wiring) {
+          const pin = hitPin(w.x, w.y);
+          if (pin && !(pin.kind === CKT.wiring.start.kind && pin.id === CKT.wiring.start.id && pin.pin === CKT.wiring.start.pin)) {
+            CKT.wires.push({
+              id: uid(), a: CKT.wiring.start, b: pin, pts: CKT.wiring.pts.slice(), _I: 0
+            });
+            AUD.wire();
+            pushUndo();
+            refreshSolve();
+          } else if (!pin && CKT.wiring.pts.length) {
+            /* ignore incomplete */
+          }
+          CKT.wiring = null;
+        }
+        if (SCH.drag && SCH.drag.kind === 'move') pushUndo();
+        SCH.drag = null;
+        for (const c of CKT.comps) if (c.type === 'BTN') c.state.on = 0;
+      };
+      cv.addEventListener('pointerup', up);
+      cv.addEventListener('pointercancel', up);
+      cv.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        const f = e.deltaY > 0 ? 0.9 : 1.1;
+        SCH.zoom = clamp(SCH.zoom * f, 0.25, 6);
+      }, { passive: false });
+      cv.addEventListener('dblclick', (e) => {
+        const w = worldFrom(e.clientX, e.clientY);
+        if (CKT.wiring) {
+          CKT.wiring.pts.push({ x: snap(w.x), y: snap(w.y) });
+        }
+      });
+    }
+
+    /* =============================== SCOPE =============================== */
+    const SCOPE = {
+      ch: [ [], [], [], [] ],
+      t: [],
+      max: 800,
+      ymin: -1, ymax: 6
+    };
+    function scopePush(t, vals) {
+      SCOPE.t.push(t);
+      for (let i = 0; i < 4; i++) SCOPE.ch[i].push(vals[i] == null ? NaN : vals[i]);
+      while (SCOPE.t.length > SCOPE.max) {
+        SCOPE.t.shift();
+        for (let i = 0; i < 4; i++) SCOPE.ch[i].shift();
+      }
+    }
+    function scopeClear() {
+      SCOPE.t = []; SCOPE.ch = [[], [], [], []];
+    }
+    function drawScope() {
+      const cv = $('scope');
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      const w = cv.clientWidth, h = cv.clientHeight;
+      if (!w || !h) return;
+      if (cv.width !== (w * dpr | 0) || cv.height !== (h * dpr | 0)) {
+        cv.width = w * dpr | 0; cv.height = h * dpr | 0;
+      }
+      const ctx = cv.getContext('2d');
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.fillStyle = '#000';
+      ctx.fillRect(0, 0, w, h);
+      ctx.strokeStyle = 'rgba(255,255,255,0.12)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      for (let i = 0; i <= 8; i++) {
+        const y = (i / 8) * h; ctx.moveTo(0, y); ctx.lineTo(w, y);
+      }
+      for (let i = 0; i <= 10; i++) {
+        const x = (i / 10) * w; ctx.moveTo(x, 0); ctx.lineTo(x, h);
+      }
+      ctx.stroke();
+      let ymin = Infinity, ymax = -Infinity;
+      for (let c = 0; c < 4; c++) {
+        for (const v of SCOPE.ch[c]) {
+          if (isFinite(v)) { if (v < ymin) ymin = v; if (v > ymax) ymax = v; }
+        }
+      }
+      if (!isFinite(ymin)) { ymin = -1; ymax = 1; }
+      if (ymax - ymin < 1e-6) { ymax += 1; ymin -= 1; }
+      const pad = 0.1 * (ymax - ymin);
+      ymin -= pad; ymax += pad;
+      const dashes = ['#fff', 'rgba(255,255,255,0.7)', 'rgba(255,255,255,0.45)', 'rgba(255,255,255,0.28)'];
+      const n = SCOPE.t.length;
+      for (let c = 0; c < 4; c++) {
+        ctx.strokeStyle = dashes[c];
+        ctx.lineWidth = c === 0 ? 1.4 : 1.1;
+        ctx.beginPath();
+        let started = false;
+        for (let i = 0; i < n; i++) {
+          const v = SCOPE.ch[c][i];
+          if (!isFinite(v)) { started = false; continue; }
+          const x = n === 1 ? 0 : (i / (n - 1)) * w;
+          const y = h - ((v - ymin) / (ymax - ymin)) * h;
+          if (!started) { ctx.moveTo(x, y); started = true; }
+          else ctx.lineTo(x, y);
+        }
+        ctx.stroke();
+      }
+      ctx.fillStyle = 'rgba(255,255,255,0.55)';
+      ctx.font = '10px ui-monospace, monospace';
+      ctx.fillText(fmt(ymax, 2) + 'V', 4, 12);
+      ctx.fillText(fmt(ymin, 2) + 'V', 4, h - 4);
+      if (n > 1) {
+        ctx.fillText(fmtU(SCOPE.t[n - 1] - SCOPE.t[0], 's'), w - 72, 12);
+      }
+    }
+
+    /* ============================ SOLVER ================================= */
+    /* Stamp context.
+       Unknowns: node voltages 1..N mapped to rows 0..N-1, then extra
+       branch currents. Ground (node 0) is omitted — Kirchhoff current
+       at the datum is linearly dependent and is dropped. */
+    const SOL = {
+      last: null,
+      x: null,
+      prevX: null,
+      prevI: {},
+      extras: 0,
+      nN: 0,
+      map: null,
+      conv: true,
+      histV: {},
+      energy: 0,
+      nrIter: 0
+    };
+    SOL.vNode = function (n) {
+      if (!this.x || n == null) return 0;
+      if (n === 0) return 0;
+      const i = n - 1;
+      return this.x[i] || 0;
+    };
+    SOL.vPin = function (c, pin) { return this.vNode(nodeOf(c, pin)); };
+
+    function Stamp(nN, nX, complex) {
+      this.nN = nN;
+      this.nX = nX;
+      this.n = nN + nX;
+      this.complex = !!complex;
+      if (this.complex) {
+        this.A = new Array(this.n);
+        this.rhs = new Array(this.n);
+        for (let i = 0; i < this.n; i++) {
+          this.A[i] = new Array(this.n);
+          for (let j = 0; j < this.n; j++) this.A[i][j] = Cz(0, 0);
+          this.rhs[i] = Cz(0, 0);
+        }
+      } else {
+        this.A = zeros(this.n);
+        this.rhs = new Float64Array(this.n);
+      }
+      this.nextX = 0;
+    }
+    Stamp.prototype.idx = function (node) {
+      if (node === 0 || node == null) return -1;
+      return node - 1;
+    };
+    Stamp.prototype.addA = function (i, j, re, im) {
+      if (i < 0 || j < 0) return;
+      if (this.complex) this.A[i][j] = Cadd(this.A[i][j], Cz(re, im || 0));
+      else this.A[i][j] += re;
+    };
+    Stamp.prototype.addRhs = function (i, re, im) {
+      if (i < 0) return;
+      if (this.complex) this.rhs[i] = Cadd(this.rhs[i], Cz(re, im || 0));
+      else this.rhs[i] += re;
+    };
+    /* Conductance g (or complex Y) between n1 and n2. */
+    Stamp.prototype.G = function (n1, n2, gre, gim) {
+      const i = this.idx(n1), j = this.idx(n2);
+      const im = gim || 0;
+      this.addA(i, i, gre, im); this.addA(j, j, gre, im);
+      this.addA(i, j, -gre, -im); this.addA(j, i, -gre, -im);
+    };
+    /* Current I flowing from n1 into n2 (out of n1). */
+    Stamp.prototype.I = function (n1, n2, Ire, Iim) {
+      this.addRhs(this.idx(n1), -(Ire || 0), -(Iim || 0));
+      this.addRhs(this.idx(n2), Ire || 0, Iim || 0);
+    };
+    /* Independent voltage source n+ to n−, value V, extra index k. */
+    Stamp.prototype.VS = function (np, nn, Vre, k, Vim) {
+      const ip = this.idx(np), in_ = this.idx(nn);
+      const ek = this.nN + k;
+      this.addA(ip, ek, 1, 0); this.addA(in_, ek, -1, 0);
+      this.addA(ek, ip, 1, 0); this.addA(ek, in_, -1, 0);
+      this.addRhs(ek, Vre || 0, Vim || 0);
+    };
+    /* VCVS: v(op)−v(on) − mu*(v(cp)−v(cn)) = 0 */
+    Stamp.prototype.VCVS = function (op, on, cp, cn, mu, k) {
+      const io = this.idx(op), inn = this.idx(on), icp = this.idx(cp), icn = this.idx(cn);
+      const ek = this.nN + k;
+      this.addA(io, ek, 1, 0); this.addA(inn, ek, -1, 0);
+      this.addA(ek, io, 1, 0); this.addA(ek, inn, -1, 0);
+      this.addA(ek, icp, -mu, 0); this.addA(ek, icn, mu, 0);
+    };
+    /* Transconductance: i from on to op = gm*(vcp − vcn) */
+    Stamp.prototype.VCCS = function (op, on, cp, cn, gm) {
+      const io = this.idx(op), inn = this.idx(on), icp = this.idx(cp), icn = this.idx(cn);
+      this.addA(io, icp, gm, 0); this.addA(io, icn, -gm, 0);
+      this.addA(inn, icp, -gm, 0); this.addA(inn, icn, gm, 0);
+    };
+
+    const Vt0 = 0.0258642; /* kT/q at 300 K */
+    function shockley(v, Is, n) {
+      const vt = n * Vt0;
+      /* Clip the *voltage used* and evaluate i, g, Ieq at that same
+         voltage. Mixing a clipped exp with the raw v in Ieq = i − g v
+         is a classic NR divergence. */
+      const x = clamp(v / vt, -35, 35);
+      const vused = x * vt;
+      const ex = Math.exp(x);
+      const i = Is * (ex - 1);
+      const g = Is * ex / vt;
+      return { i, g, vused };
+    }
+    function stampDiode(S, np, nn, v, Is, n, prev, Rs) {
+      /* Series Rs keeps geq ≤ 1/Rs. Inner Newton solves v = vd + Rs·i(vd).
+         Current stamped is the Shockley current (not (v−vd)/Rs) so a failed
+         inner solve cannot inject kiloamps. */
+      Rs = Math.max(Rs == null ? 1 : Rs, 1e-4);
+      const nIde = n || 1;
+      let vd = prev == null ? clamp(Math.min(v, 0.7 * nIde), -0.4, 0.85 * nIde) : prev;
+      for (let k = 0; k < 12; k++) {
+        const s = shockley(vd, Is, nIde);
+        const f = vd + s.i * Rs - v;
+        const df = 1 + s.g * Rs;
+        let dv = -f / df;
+        dv = clamp(dv, -0.12, 0.12);
+        vd += dv;
+        if (Math.abs(dv) < 1e-10) break;
+        vd = clamp(vd, -2, 1.4 * nIde);
+      }
+      const s = shockley(vd, Is, nIde);
+      const geq = s.g / (1 + s.g * Rs);
+      const i = s.i;
+      const Ieq = i - geq * v;
+      S.G(np, nn, geq, 0);
+      S.I(np, nn, Ieq);
+      return { i, vd };
+    }
+
+    function countExtras() {
+      let n = 0;
+      for (const c of CKT.comps) {
+        const t = c.type;
+        if (t === 'VDC' || t === 'VAC' || t === 'PULSE' || t === 'OA' || t === 'VCC' ||
+            t === 'VCVS' || t === 'CCVS' || t === 'CCCS' || t === 'ANT') n++;
+        if (t === 'CCVS' || t === 'CCCS') n++; /* sense VS */
+        if (t === 'AND' || t === 'OR' || t === 'NOT' || t === 'NAND' || t === 'NOR' || t === 'XOR' ||
+            t === 'VLSI') n++;
+        if (t === 'DLATCH' || t === 'DFF') n += 2;
+        if (t === 'CTR') n += 4;
+        if (t === 'IC555') n += 2; /* OUT VS + DISCH switch handled as R */
+        if (t === 'TLIN') n += 0;
+      }
+      return n;
+    }
+
+    function pulseVal(c, t) {
+      const { V1, V2, Td, Pw, Per } = c.params;
+      if (t < Td) return V1;
+      const tau = (t - Td) % Per;
+      return tau < Pw ? V2 : V1;
+    }
+
+    function assemble(mode, t, h, omega) {
+      CKT._map = netsOf();
+      SOL.map = CKT._map;
+      const nN = Math.max(0, CKT._map.nNodes - 1);
+      const nX = countExtras();
+      if (nN + nX > NF.maxUnknowns) {
+        return { err: 'Matrix too large (' + (nN + nX) + ' > ' + NF.maxUnknowns + '). Simplify the circuit.' };
+      }
+      if (nN + nX === 0) return { err: 'empty' };
+      const S = new Stamp(nN, nX, mode === 'ac');
+      /* Tiny leak from every node to the datum so a floating net cannot
+         make the conductance matrix singular. */
+      const gLeak = 1e-12;
+      for (let n = 1; n <= nN; n++) S.G(n, 0, gLeak, 0);
+
+      let xk = 0;
+      const vN = (n) => {
+        if (n === 0) return 0;
+        if (!SOL.x) return 0;
+        return SOL.x[n - 1] || 0;
+      };
+      /* During NR, SOL.x holds the current guess. */
+
+      for (const c of CKT.comps) {
+        const p = c.params;
+        const n = (pin) => nodeOf(c, pin);
+        switch (c.type) {
+          case 'R': {
+            S.G(n('a'), n('b'), 1 / Math.max(p.R, 1e-12), 0);
+            break;
+          }
+          case 'POT': {
+            const k = clamp(p.k, 1e-4, 1 - 1e-4);
+            S.G(n('a'), n('w'), 1 / Math.max(p.R * k, 1e-12), 0);
+            S.G(n('w'), n('b'), 1 / Math.max(p.R * (1 - k), 1e-12), 0);
+            break;
+          }
+          case 'C': {
+            if (mode === 'dc') {
+              /* open — already implicit */
+            } else if (mode === 'tran') {
+              const geq = p.C / Math.max(h, 1e-18);
+              const vold = (SOL.histV[c.id + ':a'] || 0) - (SOL.histV[c.id + ':b'] || 0);
+              S.G(n('a'), n('b'), geq, 0);
+              S.I(n('b'), n('a'), geq * vold);
+              c.state._geq = geq;
+            } else if (mode === 'ac') {
+              S.G(n('a'), n('b'), 0, omega * p.C);
+            }
+            break;
+          }
+          case 'L': {
+            if (mode === 'dc') {
+              S.G(n('a'), n('b'), 1e6, 0); /* near short */
+            } else if (mode === 'tran') {
+              const geq = Math.max(h, 1e-18) / Math.max(p.L, 1e-18);
+              const iold = SOL.prevI['L' + c.id] || 0;
+              S.G(n('a'), n('b'), geq, 0);
+              S.I(n('a'), n('b'), iold);
+              c.state._geq = geq; c.state._iold = iold;
+            } else if (mode === 'ac') {
+              const yim = -1 / Math.max(omega * p.L, 1e-18);
+              S.G(n('a'), n('b'), 0, yim);
+            }
+            break;
+          }
+          case 'VDC': {
+            S.VS(n('p'), n('n'), mode === 'ac' ? 0 : p.V, xk++);
+            c.state._xk = xk - 1;
+            break;
+          }
+          case 'VAC': {
+            if (mode === 'ac') {
+              const ph = (p.ph || 0) * Math.PI / 180;
+              S.VS(n('p'), n('n'), p.A * Math.cos(ph), xk, p.A * Math.sin(ph));
+              xk++;
+            } else if (mode === 'tran') {
+              const v = p.A * Math.sin(TAU * p.f * t + (p.ph || 0) * Math.PI / 180);
+              S.VS(n('p'), n('n'), v, xk++);
+            } else {
+              S.VS(n('p'), n('n'), 0, xk++); /* DC of sinusoid = 0 */
+            }
+            c.state._xk = xk - 1;
+            break;
+          }
+          case 'IDC': {
+            S.I(n('n'), n('p'), p.I, 0);
+            break;
+          }
+          case 'GND': break;
+          case 'PULSE': {
+            const v = mode === 'ac' ? 0 : pulseVal(c, t);
+            S.VS(n('p'), n('n'), v, xk++);
+            c.state._xk = xk - 1;
+            break;
+          }
+          case 'D':
+          case 'LED': {
+            const vd = vN(n('a')) - vN(n('c'));
+            if (mode === 'ac') {
+              const lin = shockley(vd, p.Is, p.n || 1);
+              S.G(n('a'), n('c'), lin.g, 0);
+              c.state.I = lin.i;
+            } else {
+              const r = stampDiode(S, n('a'), n('c'), vd, p.Is, p.n || 1, c.state._vd, p.Rs);
+              c.state.I = r.i;
+              c.state._vd = r.vd;
+            }
+            if (c.type === 'LED') c.state.bright = clamp(Math.max(0, c.state.I || 0) / Math.max(p.If, 1e-6), 0, 1.4);
+            break;
+          }
+          case 'Z': {
+            const vd = vN(n('a')) - vN(n('c'));
+            const Rs = p.Rs || 1;
+            if (vd > -p.Vz) {
+              const r = stampDiode(S, n('a'), n('c'), vd, p.Is, 1, c.state._vd, Rs);
+              c.state.I = r.i; c.state._vd = r.vd;
+            } else {
+              /* Reverse: Vz plus ohmic Rs. i (anode→cathode) = (vd + Vz)/Rs < 0. */
+              const geq = 1 / Rs;
+              const i = (vd + p.Vz) / Rs;
+              S.G(n('a'), n('c'), geq, 0);
+              S.I(n('a'), n('c'), i - geq * vd);
+              c.state.I = i;
+            }
+            break;
+          }
+          case 'NPN':
+          case 'PNP': {
+            stampBJT(S, c, vN, n);
+            break;
+          }
+          case 'NMOS':
+          case 'PMOS': {
+            stampMOS(S, c, vN, n);
+            break;
+          }
+          case 'JFET': {
+            stampJFET(S, c, vN, n);
+            break;
+          }
+          case 'OA': {
+            const vp = vN(n('inp')), vn = vN(n('inn'));
+            let vo = p.A * (vp - vn + (p.Vos || 0));
+            let g = p.A;
+            if (vo > p.Vmax) { vo = p.Vmax; g = 0; }
+            if (vo < p.Vmin) { vo = p.Vmin; g = 0; }
+            /* Vout − g*(vp − vn) = vo − g*(vp−vn)  →  use VS of saturated value
+               when clamped; otherwise VCVS. */
+            if (g === 0) S.VS(n('out'), 0, vo, xk++);
+            else S.VCVS(n('out'), 0, n('inp'), n('inn'), p.A, xk++);
+            c.state._xk = xk - 1;
+            c.state.vo = vo;
+            break;
+          }
+          case 'VM': {
+            S.G(n('p'), n('n'), 1e-9, 0);
+            break;
+          }
+          case 'AM': {
+            S.G(n('p'), n('n'), 1 / Math.max(p.Rs, 1e-9), 0);
+            c.state.I = (vN(n('p')) - vN(n('n'))) / Math.max(p.Rs, 1e-9);
+            break;
+          }
+          case 'PRB': break;
+          case 'SW': {
+            S.G(n('a'), n('b'), p.on ? 100 : 1e-12, 0);
+            break;
+          }
+          case 'BTN': {
+            S.G(n('a'), n('b'), c.state.on ? 100 : 1e-12, 0);
+            break;
+          }
+          case 'VCC': {
+            S.VS(n('p'), 0, mode === 'ac' ? 0 : p.V, xk++);
+            c.state._xk = xk - 1;
+            break;
+          }
+          case 'VCVS': {
+            S.VCVS(n('op'), n('on'), n('cp'), n('cn'), p.mu, xk++);
+            break;
+          }
+          case 'VCCS': {
+            S.VCCS(n('op'), n('on'), n('cp'), n('cn'), p.gm);
+            break;
+          }
+          case 'CCVS': {
+            /* sense 0V VS between cp, cn current = ic; vo = rm * ic
+               VS sense: v(cp)-v(cn) = 0, extra ks
+               VCVS-like: v(op)-v(on) - rm * ic = 0, extra ko
+               ic is the sense extra current. */
+            const ks = xk++, ko = xk++;
+            S.VS(n('cp'), n('cn'), 0, ks);
+            const io = S.idx(n('op')), inn = S.idx(n('on'));
+            const ek = S.nN + ko, es = S.nN + ks;
+            S.addA(io, ek, 1, 0); S.addA(inn, ek, -1, 0);
+            S.addA(ek, io, 1, 0); S.addA(ek, inn, -1, 0);
+            S.addA(ek, es, -p.rm, 0);
+            break;
+          }
+          case 'CCCS': {
+            const ks = xk++, ko = xk++;
+            S.VS(n('cp'), n('cn'), 0, ks);
+            /* io = beta * ic, implemented as VS 0 with current? Simpler: VCCS
+               from a dummy is messy. Stamp: extra ko is output current through
+               0V VS between op,on, and ko - beta*ks = 0. */
+            S.VS(n('op'), n('on'), 0, ko);
+            const ek = S.nN + ko, es = S.nN + ks;
+            /* Replace the 0 voltage eq? We need ko = beta * ks.
+               Use the output VS value 0 and add: actually output should be a
+               current source of beta*ic. Do not use VS for output:
+               we already allocated ko — stamp I via matrix coupling:
+               KCL op += ko, on -= ko, and row ko: 1*ko - beta*ks = 0.
+               Conflict with VS. Redo: only one extra for sense, output is
+               dependent current: KCL op += beta*ks (ks is sense current). */
+            /* ks current is through sense VS from cp to cn.
+               i(op <- on) = beta * j_s  => addA(iop, es, beta) etc. */
+            S.addA(S.idx(n('op')), S.nN + ks, p.beta, 0);
+            S.addA(S.idx(n('on')), S.nN + ks, -p.beta, 0);
+            /* leftover ko unused: 1 on diagonal so matrix stays nonsingular */
+            S.addA(S.nN + ko, S.nN + ko, 1, 0);
+            break;
+          }
+          case 'TLIN': {
+            /* series Z0; delay applied to a stored history voltage at 'a'
+               injected as a weak companion — educational lump. */
+            S.G(n('a'), n('b'), 1 / Math.max(p.Z0, 1e-6), 0);
+            if (mode === 'tran') {
+              const buf = c.state.buf || (c.state.buf = []);
+              buf.push({ t, v: vN(n('a')) });
+              while (buf.length && buf[0].t < t - p.Td - h) buf.shift();
+            }
+            break;
+          }
+          case 'ANT': {
+            S.G(n('f'), 0, 1 / Math.max(p.Rr, 1e-6), 0);
+            if (p.Voc) {
+              const v = mode === 'tran' ? p.Voc * Math.sin(TAU * p.f * t) : (mode === 'dc' ? 0 : p.Voc);
+              S.VS(n('f'), 0, v, xk++);
+            } else {
+              /* still consume? no extra if Voc=0 — we counted ANT as extra always.
+                 put a dummy 0 VS unused? Count extras dynamically instead.
+                 Safer: 0V dummy to ground through unused extra if Voc=0. */
+              S.addA(S.nN + xk, S.nN + xk, 1, 0);
+              xk++;
+            }
+            break;
+          }
+          case 'AND': case 'OR': case 'NOT': case 'NAND': case 'NOR': case 'XOR':
+          case 'VLSI': {
+            const y = digitalOut(c);
+            S.VS(n('y'), 0, y, xk++);
+            c.state._xk = xk - 1;
+            break;
+          }
+          case 'DLATCH':
+          case 'DFF': {
+            const vdd = p.Vdd;
+            S.VS(n('q'), 0, (c.state.q ? vdd : 0), xk++);
+            S.VS(n('qn'), 0, (c.state.q ? 0 : vdd), xk++);
+            break;
+          }
+          case 'CTR': {
+            const vdd = p.Vdd;
+            const q = c.state.q || 0;
+            for (let b = 0; b < 4; b++) S.VS(n('q' + b), 0, (q >> b) & 1 ? vdd : 0, xk++);
+            break;
+          }
+          case 'IC555': {
+            stamp555(S, c, vN, n, xk);
+            xk += 2;
+            break;
+          }
+        }
+      }
+      while (xk < nX) {
+        S.addA(S.nN + xk, S.nN + xk, 1, 0);
+        xk++;
+      }
+      S._usedX = xk;
+      return { S };
+    }
+
+    function stampBJT(S, c, vN, n) {
+      /* Educational Ebers-Moll core: BE diode for iB, collector is
+         α·iF in the forward-active region and a low Rsat when vCE collapses.
+         Avoids the unbounded Is·e^{vBE/Vt} collector current that
+         previously reported tens of amps through a 1 kΩ load. */
+      const p = c.params;
+      const Bf = Math.max(p.Bf, 1);
+      const sign = c.type === 'PNP' ? -1 : 1;
+      const C = n('c'), B = n('b'), E = n('e');
+      const vBE = sign * (vN(B) - vN(E));
+      const vCE = sign * (vN(C) - vN(E));
+      const be = sign > 0
+        ? stampDiode(S, B, E, vBE, p.Is, 1, c.state._vbe, 1)
+        : stampDiode(S, E, B, vBE, p.Is, 1, c.state._vbe, 1);
+      c.state._vbe = be.vd;
+      const iF = Math.max(be.i, 0);
+      const iCact = (Bf / (Bf + 1)) * iF;
+      if (iF < 1e-9) {
+        S.G(C, E, 1e-10, 0);
+        c.state.iC = 0; c.state.iB = be.i;
+      } else if (vCE < 0.15) {
+        const gsat = 1 / 8;
+        S.G(C, E, gsat, 0);
+        c.state.iC = sign * gsat * (vN(C) - vN(E));
+        c.state.iB = be.i;
+      } else {
+        S.G(C, E, 1e-6, 0);
+        S.I(C, E, sign * iCact);
+        c.state.iC = sign * iCact;
+        c.state.iB = be.i;
+      }
+      c.state.iE = -(c.state.iC + c.state.iB);
+    }
+    function stampMOS(S, c, vN, n) {
+      const p = c.params;
+      const pol = c.type === 'PMOS' ? -1 : 1;
+      const vs = vN(n('s')), vd = vN(n('d')), vg = vN(n('g'));
+      let vgs = pol * (vg - vs);
+      let vds = pol * (vd - vs);
+      const vt = pol > 0 ? p.Vt : -p.Vt;
+      const k = p.k, lam = p.lam || 0;
+      let id = 0, gm = 0, gds = 0;
+      if (vgs <= vt) {
+        id = 0;
+      } else if (vds < vgs - vt) {
+        id = k * ((vgs - vt) * vds - 0.5 * vds * vds) * (1 + lam * Math.max(vds, 0));
+        gm = k * vds * (1 + lam * Math.max(vds, 0));
+        gds = k * ((vgs - vt) - vds) * (1 + lam * Math.max(vds, 0)) +
+          k * ((vgs - vt) * vds - 0.5 * vds * vds) * lam;
+      } else {
+        const von = vgs - vt;
+        id = 0.5 * k * von * von * (1 + lam * Math.max(vds, 0));
+        gm = k * von * (1 + lam * Math.max(vds, 0));
+        gds = 0.5 * k * von * von * lam;
+      }
+      id = clamp(id, 0, 2);
+      gm = clamp(gm, 0, 2);
+      gds = clamp(gds, 1e-12, 2);
+      const Id = pol * id;
+      S.VCCS(n('d'), n('s'), n('g'), n('s'), pol * gm);
+      S.G(n('d'), n('s'), gds, 0);
+      const Ieq = Id - (pol * gm) * (vg - vs) - gds * (vd - vs);
+      S.I(n('d'), n('s'), Ieq);
+      c.state.iD = Id;
+    }
+    function stampJFET(S, c, vN, n) {
+      const p = c.params;
+      const vgs = vN(n('g')) - vN(n('s'));
+      const vds = vN(n('d')) - vN(n('s'));
+      const Vp = p.Vp;
+      const Idss = p.Idss;
+      let id = 0, gm = 0, gds = 1e-9;
+      if (vgs <= Vp) id = 0;
+      else {
+        const x = 1 - vgs / Vp;
+        const sat = Idss * x * x;
+        const vpov = vgs - Vp;
+        if (vds >= vpov) {
+          id = sat; gm = -2 * Idss * x / Vp;
+        } else {
+          id = sat * (2 * vds / vpov - (vds * vds) / (vpov * vpov || 1));
+          gm = 0.001;
+          gds = sat * (2 / vpov);
+        }
+      }
+      id = clamp(id, 0, 2);
+      S.VCCS(n('d'), n('s'), n('g'), n('s'), gm);
+      S.G(n('d'), n('s'), Math.max(gds, 1e-12), 0);
+      const Ieq = id - gm * vgs - gds * vds;
+      S.I(n('d'), n('s'), Ieq);
+      c.state.iD = id;
+    }
+    function stamp555(S, c, vN, n, xk) {
+      /* Comparators + SR latch + discharge switch + totem output VS.
+         Latch updates only on NR iteration 0 so the digital state is
+         frozen during analog Newton, then sampled from the last analog
+         voltages at the start of the next step. */
+      const vcc = Math.max(c.params.Vcc || vN(n('vcc')) || 5, 0.1);
+      if (c.state.latch == null) c.state.latch = 0;
+      if (SOL.nrIter === 0) {
+        const th = vN(n('th'));
+        const tr = vN(n('tr'));
+        const rst = vN(n('rst'));
+        const two3 = (2 / 3) * vcc;
+        const one3 = (1 / 3) * vcc;
+        if (rst < 0.4 * vcc) c.state.latch = 0;
+        else {
+          if (th > two3) c.state.latch = 0;
+          if (tr < one3) c.state.latch = 1;
+        }
+      }
+      const q = c.state.latch;
+      S.VS(n('out'), n('gnd'), q ? vcc : 0.05, xk);
+      S.G(n('dis'), n('gnd'), q ? 1e-9 : 100, 0);
+      S.G(n('cv'), n('vcc'), 1 / 5000, 0);
+      S.G(n('cv'), n('gnd'), 1 / 10000, 0);
+      S.addA(S.nN + xk + 1, S.nN + xk + 1, 1, 0);
+      c.state.q = q;
+    }
+
+    function logicLevel(v, vdd) {
+      if (v >= 0.7 * vdd) return 1;
+      if (v <= 0.3 * vdd) return 0;
+      return v >= 0.5 * vdd ? 1 : 0;
+    }
+    function digitalOut(c) {
+      const vdd = c.params.Vdd || 5;
+      const a = logicLevel(SOL.vPin(c, 'a'), vdd);
+      const b = c.type === 'NOT' ? 0 : logicLevel(SOL.vPin(c, 'b'), vdd);
+      let y = 0;
+      switch (c.type) {
+        case 'AND': y = a & b; break;
+        case 'OR': y = a | b; break;
+        case 'NOT': y = a ^ 1; break;
+        case 'NAND': y = (a & b) ^ 1; break;
+        case 'NOR': y = (a | b) ^ 1; break;
+        case 'XOR': y = a ^ b; break;
+        case 'VLSI': {
+          const fn = c.params.fn | 0;
+          y = fn === 0 ? (a & b) : fn === 1 ? (a | b) : fn === 2 ? (a ^ b) : (a & b) ^ 1;
+          if (c.state._lastY != null && c.state._lastY !== y) {
+            SOL.energy += 0.5 * c.params.C * vdd * vdd;
+          }
+          c.state._lastY = y;
+          break;
+        }
+      }
+      if (c.state._y == null) c.state._y = y;
+      /* delay: hold previous until td elapsed — handled in DIG.step */
+      return (c.state.qY != null ? c.state.qY : y) * vdd;
+    }
+
+    function evalDigital(t) {
+      for (const c of CKT.comps) {
+        const d = REG.get(c.type);
+        if (!d || !d.digital && c.type !== 'DLATCH' && c.type !== 'DFF' && c.type !== 'CTR' && c.type !== 'IC555') continue;
+        const vdd = c.params.Vdd || c.params.Vcc || 5;
+        if (c.type === 'DLATCH') {
+          const E = logicLevel(SOL.vPin(c, 'e'), vdd);
+          const D = logicLevel(SOL.vPin(c, 'd'), vdd);
+          if (E) c.state.q = D;
+          if (c.state.q == null) c.state.q = 0;
+        } else if (c.type === 'DFF') {
+          const clk = logicLevel(SOL.vPin(c, 'clk'), vdd);
+          const D = logicLevel(SOL.vPin(c, 'd'), vdd);
+          if (c.state._clk === 0 && clk === 1) c.state.q = D;
+          c.state._clk = clk;
+          if (c.state.q == null) c.state.q = 0;
+        } else if (c.type === 'CTR') {
+          const clk = logicLevel(SOL.vPin(c, 'clk'), vdd);
+          const rst = logicLevel(SOL.vPin(c, 'rst'), vdd);
+          if (rst) c.state.q = 0;
+          else if (c.state._clk === 0 && clk === 1) c.state.q = ((c.state.q || 0) + 1) & 15;
+          c.state._clk = clk;
+        } else if (d.digital) {
+          const ynow = (function () {
+            const a = logicLevel(SOL.vPin(c, 'a'), vdd);
+            const b = c.type === 'NOT' ? 0 : logicLevel(SOL.vPin(c, 'b'), vdd);
+            if (c.type === 'AND' || (c.type === 'VLSI' && (c.params.fn | 0) === 0)) return a & b;
+            if (c.type === 'OR') return a | b;
+            if (c.type === 'NOT') return a ^ 1;
+            if (c.type === 'NAND') return (a & b) ^ 1;
+            if (c.type === 'NOR') return (a | b) ^ 1;
+            if (c.type === 'XOR') return a ^ b;
+            return a & b;
+          })();
+          if (c.state._pend == null) c.state._pend = { y: ynow, t };
+          if (ynow !== c.state._pend.y) c.state._pend = { y: ynow, t };
+          if (t - c.state._pend.t >= (c.params.td || 0)) c.state.qY = c.state._pend.y;
+        }
+      }
+    }
+
+    function solveReal(S) {
+      const fact = luFactor(S.A);
+      if (!fact.ok) return { ok: false, reason: 'singular' };
+      const x = luSolve(fact, S.rhs);
+      for (let i = 0; i < x.length; i++) if (!isFinite(x[i])) return { ok: false, reason: 'nan' };
+      return { ok: true, x };
+    }
+    function residual(S, x) {
+      let e = 0;
+      const n = S.n;
+      for (let i = 0; i < n; i++) {
+        let s = -S.rhs[i];
+        const Ai = S.A[i];
+        for (let j = 0; j < n; j++) s += Ai[j] * x[j];
+        e += s * s;
+      }
+      return Math.sqrt(e);
+    }
+
+    function solveNR(mode, t, h) {
+      const nX = countExtras();
+      const map = netsOf();
+      const nN = Math.max(0, map.nNodes - 1);
+      const n = nN + nX;
+      if (!SOL.x || SOL.x.length !== n) SOL.x = new Float64Array(n);
+      let ok = false, reason = '';
+      for (let it = 0; it < 56; it++) {
+        SOL.nrIter = it;
+        const built = assemble(mode, t, h, 0);
+        if (built.err) return { ok: false, reason: built.err };
+        const S = built.S;
+        if (S.n === 0) return { ok: true, x: new Float64Array(0) };
+        const r = solveReal(S);
+        if (!r.ok) { reason = r.reason; break; }
+        const xnew = r.x;
+        let maxdv = 0;
+        for (let i = 0; i < n; i++) {
+          const dv = Math.abs(xnew[i] - SOL.x[i]);
+          if (dv > maxdv) maxdv = dv;
+        }
+        /* Large steps are damped so a first guess of 5 V across a diode
+           walks through the exponential instead of jumping over it.
+           Voltage-source rows still converge because they are linear. */
+        let alpha = 1;
+        if (maxdv > 2) alpha = 0.22;
+        else if (maxdv > 0.6) alpha = 0.4;
+        else if (maxdv > 0.2) alpha = 0.7;
+        const trial = new Float64Array(n);
+        for (let i = 0; i < n; i++) trial[i] = SOL.x[i] + alpha * (xnew[i] - SOL.x[i]);
+        SOL.x = trial;
+        if (maxdv < 1.5e-5) { ok = true; SOL.x = xnew; break; }
+      }
+      SOL.last = { ok, reason, t };
+      if (ok) afterSolve(mode, t, h);
+      return SOL.last;
+    }
+
+    function afterSolve(mode, t, h) {
+      /* store capacitor voltages, inductor currents, wire currents */
+      for (const c of CKT.comps) {
+        if (c.type === 'C') {
+          SOL.histV[c.id + ':a'] = SOL.vPin(c, 'a');
+          SOL.histV[c.id + ':b'] = SOL.vPin(c, 'b');
+        }
+        if (c.type === 'L' && mode === 'tran') {
+          const geq = c.state._geq || 0;
+          const iold = c.state._iold || 0;
+          const v = SOL.vPin(c, 'a') - SOL.vPin(c, 'b');
+          SOL.prevI['L' + c.id] = geq * v + iold;
+          c.state.I = SOL.prevI['L' + c.id];
+        }
+        if (c.type === 'AM') {
+          const rs = Math.max(c.params.Rs, 1e-9);
+          c.state.I = (SOL.vPin(c, 'p') - SOL.vPin(c, 'n')) / rs;
+        }
+        if (c.type === 'R') {
+          c.state.I = (SOL.vPin(c, 'a') - SOL.vPin(c, 'b')) / Math.max(c.params.R, 1e-12);
+          c.state.P = c.state.I * c.state.I * c.params.R;
+        }
+        if (c.type === 'LED') {
+          c.state.bright = clamp(Math.max(0, c.state.I || 0) / Math.max(c.params.If, 1e-6), 0, 1.4);
+        }
+      }
+      /* crude wire current: if endpoints have a unique resistor-like device, skip;
+         animate by average |I| of incident passives */
+      for (const w of CKT.wires) {
+        w._I = estimateWireI(w);
+      }
+      let mag = 0;
+      for (const c of CKT.comps) if (c.state.I) mag += Math.abs(c.state.I);
+      AUD.setHum(mag);
+
+      const probes = [NaN, NaN, NaN, NaN];
+      for (const c of CKT.comps) {
+        if (c.type === 'PRB') {
+          const ch = clamp((c.params.ch | 0) - 1, 0, 3);
+          probes[ch] = SOL.vPin(c, 'p');
+        }
+      }
+      /* if no probes, auto first non-ground node and LED/VM */
+      if (probes.every((x) => !isFinite(x))) {
+        let k = 0;
+        for (const c of CKT.comps) {
+          if (k > 3) break;
+          if (c.type === 'LED' || c.type === 'VM' || c.type === 'C' || c.type === 'OA') {
+            const d = REG.get(c.type);
+            probes[k++] = SOL.vPin(c, d.pins[0].id);
+          }
+        }
+      }
+      if (mode === 'tran' || mode === 'logic') scopePush(t, probes);
+      updateChMeta(probes);
+      evalDigital(t);
+    }
+    function estimateWireI(w) {
+      /* use current of a two-terminal element attached to either end */
+      let I = 0, n = 0;
+      const ends = [w.a, w.b];
+      for (const e of ends) {
+        if (e.kind !== 'comp') continue;
+        const c = findComp(e.id);
+        if (c && typeof c.state.I === 'number') { I += c.state.I; n++; }
+      }
+      return n ? I / n : 0;
+    }
+    function updateChMeta(probes) {
+      const el = $('chmeta');
+      let s = '';
+      for (let i = 0; i < 4; i++) {
+        if (isFinite(probes[i])) s += 'CH' + (i + 1) + '  ' + fmtU(probes[i], 'V') + '\n';
+      }
+      el.textContent = s || 'No probes.';
+    }
+
+    function solveDC() {
+      SOL.histV = {};
+      SOL.prevI = {};
+      let r = { ok: true };
+      /* Mixed-signal relaxation: analog NR, then digital/555 sample, repeat.
+         Pure analog circuits converge on the first pass. */
+      for (let k = 0; k < 6; k++) {
+        r = solveNR('dc', 0, NF.dt);
+        evalDigital(0);
+        if (!r.ok) break;
+      }
+      return r;
+    }
+    function refreshSolve() {
+      if (!NF.ready || NF.running) return;
+      solveDC();
+    }
+    function stepTran(h) {
+      const r = solveNR('tran', NF.t + h, h);
+      if (r.ok) NF.t += h;
+      return r;
+    }
+    function solveAC() {
+      /* DC op, then complex sweep. Linearized stamps use last DC x. */
+      const dc = solveDC();
+      if (!dc.ok && dc.reason !== 'empty') return dc;
+      const f0 = 10, f1 = 1e7, pts = 40;
+      scopeClear();
+      for (let i = 0; i < pts; i++) {
+        const f = f0 * Math.pow(f1 / f0, i / (pts - 1));
+        const w = TAU * f;
+        const built = assemble('ac', 0, NF.dt, w);
+        if (built.err) return { ok: false, reason: built.err };
+        const fact = cluFactor(built.S.A);
+        if (!fact.ok) continue;
+        const x = cluSolve(fact, built.S.rhs);
+        /* pick first probe or first node */
+        let mag = 0;
+        const pr = CKT.comps.find((c) => c.type === 'PRB');
+        if (pr) {
+          const nn = nodeOf(pr, 'p');
+          if (nn > 0) mag = Cabs(x[nn - 1]);
+        } else if (x[0]) mag = Cabs(x[0]);
+        scopePush(Math.log10(f), [20 * Math.log10(Math.max(mag, 1e-12)), NaN, NaN, NaN]);
+      }
+      SOL.last = { ok: true, ac: true };
+      return SOL.last;
+    }
+
+    /* Super-Pro suite: original six solver checks + analog/digital/advanced
+       + UI (library scroll, screen→world placement). Silent; Engineer inspector. */
+    function selfTest() {
+      const bak = snapshot();
+      const notes = [];
+      function wipe() {
+        CKT.comps = []; CKT.wires = []; CKT.junctions = []; SOL.x = null; SOL.histV = {}; SOL.prevI = {}; NF.t = 0;
+      }
+      function W(ca, pa, cb, pb) {
+        CKT.wires.push({ id: uid(), a: { kind: 'comp', id: ca.id, pin: pa }, b: { kind: 'comp', id: cb.id, pin: pb }, pts: [] });
+      }
+      function expect(name, cond, detail) {
+        notes.push((cond ? 'PASS ' : 'FAIL ') + name + (detail ? ' ' + detail : ''));
+        return cond;
+      }
+      let all = true;
+
+      /* ---- UI: placement math (the HiDPI bug) ---- */
+      {
+        const r = { left: 100, top: 50, width: 800, height: 600 };
+        const mid = worldFromRect(500, 350, r, 2, 10, -20);
+        all = expect('place-center', Math.abs(mid.x - 10) < 1e-9 && Math.abs(mid.y + 20) < 1e-9,
+          'x=' + mid.x + ' y=' + mid.y) && all;
+        const off = worldFromRect(700, 350, r, 2, 10, -20);
+        all = expect('place-offset', Math.abs(off.x - 110) < 1e-9, 'x=' + off.x) && all;
+        const z1 = worldFromRect(500, 350, r, 0.5, 0, 0);
+        all = expect('place-zoom', Math.abs(z1.x) < 1e-9 && Math.abs(z1.y) < 1e-9) && all;
+        /* Old buggy formula used backing-store pixels (= css * dpr).
+           At dpr=2 that would report 210 instead of 110. */
+        const dprGhost = (700 - 100 - 800 / 2) * 2 / 2 + 10;
+        all = expect('place-not-dpr', Math.abs(off.x - 110) < 1e-9 && Math.abs(dprGhost - 210) < 1e-9) && all;
+      }
+
+      /* ---- UI: library scroll geometry ---- */
+      {
+        const sc = $('libscroll');
+        const left = $('left');
+        const wasLib = document.body.classList.contains('show-lib');
+        document.body.classList.add('show-lib');
+        if (left) void left.offsetHeight;
+        const cs = sc ? getComputedStyle(sc) : null;
+        const oy = cs && (cs.overflowY === 'auto' || cs.overflowY === 'scroll');
+        const canScroll = !sc || sc.scrollHeight >= sc.clientHeight;
+        const lh = left ? getComputedStyle(left) : null;
+        const clipped = lh && (lh.overflow === 'hidden' || lh.overflowY === 'hidden' || lh.overflow === 'auto');
+        if (!wasLib) document.body.classList.remove('show-lib');
+        all = expect('lib-overflow', !!oy, cs ? cs.overflowY : 'missing') && all;
+        all = expect('lib-scrollable', canScroll, sc ? ('sh=' + sc.scrollHeight + ' ch=' + sc.clientHeight) : 'missing') && all;
+        all = expect('lib-clip', !!clipped) && all;
+        all = expect('lib-search', !!$('search') && $('search').parentElement && $('search').parentElement.id === 'libhead') && all;
+        const cv = $('schematic');
+        const rr = cv.getBoundingClientRect();
+        if (rr.width > 40 && rr.height > 40) {
+          const hold = { z: SCH.zoom, x: SCH.camX, y: SCH.camY };
+          SCH.zoom = 1.5; SCH.camX = 30; SCH.camY = -15;
+          const w0 = worldFrom(rr.left + rr.width / 2, rr.top + rr.height / 2);
+          const w1 = worldFrom(rr.left + rr.width / 2 + 150, rr.top + rr.height / 2);
+          SCH.zoom = hold.z; SCH.camX = hold.x; SCH.camY = hold.y;
+          all = expect('place-live', Math.abs(w0.x - 30) < 0.8 && Math.abs(w0.y + 15) < 0.8 &&
+            Math.abs(w1.x - (30 + 150 / 1.5)) < 0.8,
+            'c=' + fmt(w0.x, 2) + ',' + fmt(w0.y, 2) + ' o=' + fmt(w1.x, 2)) && all;
+        }
+      }
+
+      /* ---- Original six ---- */
+      wipe();
+      {
+        const g = addComp('GND', 0, 80);
+        const v = addComp('VDC', 0, 0); v.params.V = 10;
+        const r1 = addComp('R', 80, 0); r1.params.R = 1000;
+        const r2 = addComp('R', 80, 80); r2.params.R = 1000;
+        W(v, 'n', g, 'g'); W(v, 'p', r1, 'a'); W(r1, 'b', r2, 'a'); W(r2, 'b', g, 'g');
+        const r = solveDC();
+        const mid = SOL.vPin(r1, 'b');
+        all = expect('divider', r.ok && Math.abs(mid - 5) < 1e-3, 'Vmid=' + fmt(mid, 4)) && all;
+      }
+
+      wipe();
+      {
+        const g = addComp('GND', 0, 40);
+        const v = addComp('VDC', 0, 0); v.params.V = 5;
+        const r1 = addComp('R', 60, 0); r1.params.R = 1000;
+        W(v, 'n', g, 'g'); W(v, 'p', r1, 'a'); W(r1, 'b', g, 'g');
+        const r = solveDC();
+        all = expect('ohm', r.ok && Math.abs((r1.state.I || 0) - 0.005) < 1e-6, 'I=' + fmt(r1.state.I, 6)) && all;
+      }
+
+      wipe();
+      {
+        const g = addComp('GND', 0, 40);
+        const v = addComp('VDC', 0, 0); v.params.V = 5;
+        const r1 = addComp('R', 60, 0); r1.params.R = 1000;
+        const c1 = addComp('C', 60, 40); c1.params.C = 1e-6;
+        W(v, 'n', g, 'g'); W(v, 'p', r1, 'a'); W(r1, 'b', c1, 'a'); W(c1, 'b', g, 'g');
+        SOL.histV = {};
+        const h = 1e-4;
+        const r = solveNR('tran', h, h);
+        const vc = SOL.vPin(c1, 'a');
+        const expectV = 5 * 0.001 / 0.011;
+        all = expect('rc-be', r.ok && Math.abs(vc - expectV) < 1e-4, 'vC=' + fmt(vc, 4)) && all;
+      }
+
+      wipe();
+      {
+        const g = addComp('GND', 0, 40);
+        const v = addComp('VDC', 0, 0); v.params.V = 5;
+        const r1 = addComp('R', 60, 0); r1.params.R = 1000;
+        const d = addComp('D', 120, 0);
+        W(v, 'n', g, 'g'); W(v, 'p', r1, 'a'); W(r1, 'b', d, 'a'); W(d, 'c', g, 'g');
+        const r = solveDC();
+        all = expect('diode', r.ok && (d.state.I || 0) > 0.001 && (d.state.I || 0) < 0.02,
+          'I=' + fmt(d.state.I, 5) + ' Vd=' + fmt(SOL.vPin(d, 'a'), 3)) && all;
+      }
+
+      wipe();
+      {
+        const g = addComp('GND', 0, 40);
+        const v = addComp('VDC', 0, 0); v.params.V = 1;
+        const oa = addComp('OA', 80, 0);
+        W(v, 'n', g, 'g'); W(v, 'p', oa, 'inp'); W(oa, 'out', oa, 'inn');
+        const r = solveDC();
+        const vo = SOL.vPin(oa, 'out');
+        all = expect('opamp-buf', r.ok && Math.abs(vo - 1) < 0.02, 'Vo=' + fmt(vo, 4)) && all;
+      }
+
+      wipe();
+      {
+        const g = addComp('GND', 0, 40);
+        const v = addComp('VCC', 0, 0); v.params.V = 5;
+        const gate = addComp('AND', 80, 0);
+        W(v, 'p', gate, 'a'); W(v, 'p', gate, 'b');
+        const r = solveDC();
+        const y = SOL.vPin(gate, 'y');
+        all = expect('and-gate', r.ok && Math.abs(y - 5) < 0.05, 'Y=' + fmt(y, 3)) && all;
+      }
+
+      /* ---- Beginner: LED + R + VDC + GND ---- */
+      wipe();
+      {
+        const g = addComp('GND', 0, 80);
+        const v = addComp('VDC', 0, 0); v.params.V = 5;
+        const r1 = addComp('R', 80, 0); r1.params.R = 330;
+        const led = addComp('LED', 160, 0);
+        W(v, 'n', g, 'g'); W(v, 'p', r1, 'a'); W(r1, 'b', led, 'a'); W(led, 'c', g, 'g');
+        const r = solveDC();
+        const I = led.state.I || 0;
+        all = expect('led-light', r.ok && I > 0.001 && (led.state.bright || 0) > 0.1,
+          'I=' + fmt(I, 5) + ' br=' + fmt(led.state.bright, 2)) && all;
+      }
+
+      /* ---- Analog: Zener shunt ~5.1 V ---- */
+      wipe();
+      {
+        const g = addComp('GND', 0, 80);
+        const v = addComp('VDC', 0, 0); v.params.V = 10;
+        const r1 = addComp('R', 80, 0); r1.params.R = 1000;
+        const z = addComp('Z', 160, 0); z.params.Vz = 5.1;
+        W(v, 'n', g, 'g'); W(v, 'p', r1, 'a'); W(r1, 'b', z, 'c'); W(z, 'a', g, 'g');
+        const r = solveDC();
+        const vz = SOL.vPin(z, 'c') - SOL.vPin(z, 'a');
+        all = expect('zener', r.ok && Math.abs(vz - 5.1) < 0.6, 'Vz=' + fmt(vz, 3)) && all;
+      }
+
+      /* ---- Analog: NPN switch conducts ---- */
+      wipe();
+      {
+        const g = addComp('GND', 0, 80);
+        const v = addComp('VDC', 0, 0); v.params.V = 5;
+        const rc = addComp('R', 80, -40); rc.params.R = 1000;
+        const rb = addComp('R', 40, 40); rb.params.R = 2200;
+        const q = addComp('NPN', 80, 40);
+        W(v, 'n', g, 'g'); W(v, 'p', rc, 'a'); W(rc, 'b', q, 'c'); W(q, 'e', g, 'g');
+        W(v, 'p', rb, 'a'); W(rb, 'b', q, 'b');
+        const r = solveDC();
+        const iC = q.state.iC || 0;
+        all = expect('bjt-sw', r.ok && iC > 5e-4, 'iC=' + fmt(iC, 5) + (r.ok ? '' : ' ' + r.reason)) && all;
+      }
+
+      /* ---- Analog: NMOS switch conducts ---- */
+      wipe();
+      {
+        const g = addComp('GND', 0, 80);
+        const v = addComp('VDC', 0, 0); v.params.V = 5;
+        const rd = addComp('R', 80, -40); rd.params.R = 1000;
+        const m = addComp('NMOS', 80, 40);
+        W(v, 'n', g, 'g'); W(v, 'p', rd, 'a'); W(rd, 'b', m, 'd'); W(m, 's', g, 'g'); W(v, 'p', m, 'g');
+        const r = solveDC();
+        const iD = m.state.iD || 0;
+        all = expect('nmos-sw', r.ok && iD > 5e-4, 'iD=' + fmt(iD, 5) + (r.ok ? '' : ' ' + r.reason)) && all;
+      }
+
+      /* ---- Analog: inverting amp Vo = −(Rf/Rin)·Vin = −2 ---- */
+      wipe();
+      {
+        const g = addComp('GND', 0, 80);
+        const v = addComp('VDC', 0, 0); v.params.V = 1;
+        const rin = addComp('R', 40, 0); rin.params.R = 10000;
+        const rf = addComp('R', 120, -40); rf.params.R = 20000;
+        const oa = addComp('OA', 120, 0);
+        W(v, 'n', g, 'g'); W(oa, 'inp', g, 'g');
+        W(v, 'p', rin, 'a'); W(rin, 'b', oa, 'inn');
+        W(oa, 'out', rf, 'a'); W(rf, 'b', oa, 'inn');
+        const r = solveDC();
+        const vo = SOL.vPin(oa, 'out');
+        all = expect('opamp-inv', r.ok && Math.abs(vo + 2) < 0.08, 'Vo=' + fmt(vo, 4)) && all;
+      }
+
+      /* ---- Digital: NOT, NAND, XOR, latch, DFF, counter ---- */
+      wipe();
+      {
+        const g = addComp('GND', 0, 80);
+        const v = addComp('VCC', 0, 0); v.params.V = 5;
+        const nt = addComp('NOT', 80, 0);
+        W(v, 'p', nt, 'a');
+        let r = solveDC();
+        all = expect('not-high', r.ok && Math.abs(SOL.vPin(nt, 'y')) < 0.2, 'Y=' + fmt(SOL.vPin(nt, 'y'), 3)) && all;
+      }
+      wipe();
+      {
+        const v = addComp('VCC', 0, 0); v.params.V = 5;
+        const g1 = addComp('NAND', 80, 0);
+        const g2 = addComp('XOR', 80, 40);
+        W(v, 'p', g1, 'a'); W(v, 'p', g1, 'b');
+        W(v, 'p', g2, 'a'); W(v, 'p', g2, 'b');
+        const r = solveDC();
+        all = expect('nand-xor', r.ok && Math.abs(SOL.vPin(g1, 'y')) < 0.3 && Math.abs(SOL.vPin(g2, 'y')) < 0.3,
+          'NAND=' + fmt(SOL.vPin(g1, 'y'), 2) + ' XOR=' + fmt(SOL.vPin(g2, 'y'), 2)) && all;
+      }
+      wipe();
+      {
+        const v = addComp('VCC', 0, 0); v.params.V = 5;
+        const lat = addComp('DLATCH', 80, 0);
+        const ff = addComp('DFF', 80, 50);
+        const ct = addComp('CTR', 160, 0);
+        W(v, 'p', lat, 'd'); W(v, 'p', lat, 'e');
+        W(v, 'p', ff, 'd');
+        const r = solveDC();
+        all = expect('seq-place', r.ok, r.ok ? 'latch/dff/ctr' : (r.reason || 'fail')) && all;
+      }
+
+      /* ---- Mixed-signal: AND output driving a resistor load ---- */
+      wipe();
+      {
+        const g = addComp('GND', 0, 80);
+        const v = addComp('VCC', 0, 0); v.params.V = 5;
+        const gate = addComp('AND', 80, 0);
+        const rl = addComp('R', 160, 0); rl.params.R = 1000;
+        W(v, 'p', gate, 'a'); W(v, 'p', gate, 'b');
+        W(gate, 'y', rl, 'a'); W(rl, 'b', g, 'g');
+        const r = solveDC();
+        all = expect('mixed', r.ok && SOL.vPin(gate, 'y') > 4.5 && Math.abs(rl.state.I || 0) > 0.003,
+          'Y=' + fmt(SOL.vPin(gate, 'y'), 3) + ' I=' + fmt(rl.state.I, 5)) && all;
+      }
+
+      /* ---- Advanced: 555, VCVS, T-line, VLSI, antenna — no crash ---- */
+      wipe();
+      {
+        const g = addComp('GND', 0, 80);
+        const v = addComp('VDC', 0, 0); v.params.V = 5;
+        const ic = addComp('IC555', 80, 0);
+        W(v, 'n', g, 'g'); W(v, 'p', ic, 'vcc'); W(ic, 'gnd', g, 'g'); W(v, 'p', ic, 'rst');
+        const r = solveDC();
+        all = expect('555', r.ok, r.ok ? 'ok' : (r.reason || 'fail')) && all;
+      }
+      wipe();
+      {
+        const g = addComp('GND', 0, 80);
+        const v = addComp('VDC', 0, 0); v.params.V = 1;
+        const dep = addComp('VCVS', 80, 0); dep.params.mu = 2;
+        const rl = addComp('R', 160, 0); rl.params.R = 1000;
+        W(v, 'n', g, 'g'); W(v, 'p', dep, 'cp'); W(dep, 'cn', g, 'g');
+        W(dep, 'on', g, 'g'); W(dep, 'op', rl, 'a'); W(rl, 'b', g, 'g');
+        const r = solveDC();
+        const vo = SOL.vPin(dep, 'op');
+        all = expect('vcvs', r.ok && Math.abs(vo - 2) < 0.05, 'Vo=' + fmt(vo, 3)) && all;
+      }
+      wipe();
+      {
+        const g = addComp('GND', 0, 80);
+        const v = addComp('VDC', 0, 0); v.params.V = 5;
+        const tl = addComp('TLIN', 80, 0);
+        const vl = addComp('VLSI', 160, 0);
+        const ant = addComp('ANT', 80, 80);
+        W(v, 'n', g, 'g'); W(v, 'p', tl, 'a'); W(tl, 'b', vl, 'a'); W(vl, 'b', g, 'g');
+        const r = solveDC();
+        all = expect('adv-lumps', r.ok, r.ok ? 'tl/vlsi/ant' : (r.reason || 'fail')) && all;
+      }
+
+      /* ---- Crash: every registered part can be placed and assembled ---- */
+      {
+        let crashed = null, n = 0;
+        for (const id of REG.order) {
+          wipe();
+          try {
+            addComp('GND', 0, 80);
+            addComp(id, 80, 0);
+            const built = assemble('dc', 0, NF.dt, 0);
+            if (built && built.S) solveReal(built.S);
+            n++;
+          } catch (e) { crashed = id + ': ' + (e && e.message || e); break; }
+        }
+        all = expect('all-parts', !crashed, crashed || (n + ' types')) && all;
+      }
+
+      /* ---- Persistence + undo ---- */
+      wipe();
+      {
+        addComp('R', 10, 20);
+        const js = JSON.stringify(serialize());
+        const o = JSON.parse(js);
+        all = expect('json-round', o.comps && o.comps.length === 1 && o.comps[0].type === 'R') && all;
+        const before = CKT.comps.length;
+        pushUndo();
+        addComp('C', 30, 40);
+        pushUndo();
+        undo();
+        all = expect('undo', CKT.comps.length === before, 'n=' + CKT.comps.length) && all;
+      }
+
+      /* ---- Missions callable ---- */
+      {
+        let okm = true;
+        try {
+          for (const m of MSN.list) { m.check(); }
+        } catch (e) { okm = false; }
+        all = expect('missions', okm && MSN.list.length >= 8, 'n=' + MSN.list.length) && all;
+      }
+
+      restoreSnap(bak);
+      HIST.stack = [snapshot()]; HIST.i = 0;
+      NF.t = 0;
+      SOL.self = (all ? 'PASS  ' : 'FAIL  ') + notes.join(' · ');
+      SOL.notes = notes;
+      return all;
+    }
+
+    /* ============================== WEBGL ================================ */
+    const GL = {
+      gl: null, prog: null, buf: null, ibo: null,
+      camT: 0.7, camP: 0.45, camR: 18,
+      panX: 0, panY: 0,
+      ready: false,
+      parts: {}
+    };
+    function compile(gl, type, src) {
+      const s = gl.createShader(type);
+      gl.shaderSource(s, src);
+      gl.compileShader(s);
+      if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) {
+        return null;
+      }
+      return s;
+    }
+    function initGL() {
+      const cv = $('gl');
+      const gl = cv.getContext('webgl', { antialias: true, alpha: false });
+      if (!gl) { toast('WebGL unavailable — 3D disabled'); return; }
+      GL.gl = gl;
+      const vs = compile(gl, gl.VERTEX_SHADER, [
+        'attribute vec3 aP;',
+        'attribute vec3 aN;',
+        'uniform mat4 uMVP;',
+        'uniform mat4 uM;',
+        'varying vec3 vN;',
+        'varying vec3 vW;',
+        'void main(){',
+        '  vec4 w = uM * vec4(aP,1.0);',
+        '  vW = w.xyz;',
+        '  vN = mat3(uM) * aN;',
+        '  gl_Position = uMVP * vec4(aP,1.0);',
+        '}'
+      ].join('\n'));
+      const fs = compile(gl, gl.FRAGMENT_SHADER, [
+        'precision mediump float;',
+        'varying vec3 vN;',
+        'varying vec3 vW;',
+        'uniform vec3 uColor;',
+        'uniform float uEmit;',
+        'void main(){',
+        '  vec3 N = normalize(vN);',
+        '  vec3 L = normalize(vec3(0.35, 0.8, 0.45));',
+        '  float diff = max(dot(N, L), 0.0);',
+        '  float amb = 0.18;',
+        '  float grid = 0.0;',
+        '  float fx = abs(fract(vW.x * 2.0) - 0.5);',
+        '  float fz = abs(fract(vW.z * 2.0) - 0.5);',
+        '  if (fx < 0.03 || fz < 0.03) grid = 0.12;',
+        '  float i = amb + 0.75 * diff + uEmit + grid;',
+        '  gl_FragColor = vec4(uColor * i, 1.0);',
+        '}'
+      ].join('\n'));
+      const p = gl.createProgram();
+      gl.attachShader(p, vs); gl.attachShader(p, fs);
+      gl.linkProgram(p);
+      if (!gl.getProgramParameter(p, gl.LINK_STATUS)) {
+        toast('3D shader link failed'); return;
+      }
+      GL.prog = p;
+      GL.loc = {
+        aP: gl.getAttribLocation(p, 'aP'),
+        aN: gl.getAttribLocation(p, 'aN'),
+        uMVP: gl.getUniformLocation(p, 'uMVP'),
+        uM: gl.getUniformLocation(p, 'uM'),
+        uColor: gl.getUniformLocation(p, 'uColor'),
+        uEmit: gl.getUniformLocation(p, 'uEmit')
+      };
+      gl.enable(gl.DEPTH_TEST);
+      gl.clearColor(0, 0, 0, 1);
+      GL.geo = {
+        box: meshBox(1, 1, 1),
+        cyl: meshCyl(0.5, 1, 12),
+        sph: meshSph(0.5, 10, 8),
+        board: meshBox(12, 0.15, 8)
+      };
+      GL.ready = true;
+    }
+    function meshBox(w, h, d) {
+      const x = w / 2, y = h / 2, z = d / 2;
+      const P = [
+        -x,-y, z,  x,-y, z,  x, y, z, -x, y, z,
+        -x,-y,-z, -x, y,-z,  x, y,-z,  x,-y,-z,
+        -x, y,-z, -x, y, z,  x, y, z,  x, y,-z,
+        -x,-y,-z,  x,-y,-z,  x,-y, z, -x,-y, z,
+         x,-y,-z,  x, y,-z,  x, y, z,  x,-y, z,
+        -x,-y,-z, -x,-y, z, -x, y, z, -x, y,-z
+      ];
+      const N = [
+        0,0,1,0,0,1,0,0,1,0,0,1,
+        0,0,-1,0,0,-1,0,0,-1,0,0,-1,
+        0,1,0,0,1,0,0,1,0,0,1,0,
+        0,-1,0,0,-1,0,0,-1,0,0,-1,0,
+        1,0,0,1,0,0,1,0,0,1,0,0,
+        -1,0,0,-1,0,0,-1,0,0,-1,0,0
+      ];
+      const I = [];
+      for (let f = 0; f < 6; f++) {
+        const o = f * 4;
+        I.push(o, o + 1, o + 2, o, o + 2, o + 3);
+      }
+      return packMesh(P, N, I);
+    }
+    function meshCyl(r, h, seg) {
+      const P = [], N = [], I = [];
+      const y0 = -h / 2, y1 = h / 2;
+      for (let i = 0; i <= seg; i++) {
+        const a = i / seg * TAU, c = Math.cos(a), s = Math.sin(a);
+        P.push(r * c, y0, r * s, r * c, y1, r * s);
+        N.push(c, 0, s, c, 0, s);
+      }
+      for (let i = 0; i < seg; i++) {
+        const o = i * 2;
+        I.push(o, o + 1, o + 3, o, o + 3, o + 2);
+      }
+      const base = P.length / 3;
+      P.push(0, y0, 0); N.push(0, -1, 0);
+      P.push(0, y1, 0); N.push(0, 1, 0);
+      for (let i = 0; i < seg; i++) {
+        const a0 = i / seg * TAU, a1 = (i + 1) / seg * TAU;
+        const i0 = P.length / 3;
+        P.push(r * Math.cos(a0), y0, r * Math.sin(a0)); N.push(0, -1, 0);
+        P.push(r * Math.cos(a1), y0, r * Math.sin(a1)); N.push(0, -1, 0);
+        I.push(base, i0 + 1, i0);
+        const j0 = P.length / 3;
+        P.push(r * Math.cos(a0), y1, r * Math.sin(a0)); N.push(0, 1, 0);
+        P.push(r * Math.cos(a1), y1, r * Math.sin(a1)); N.push(0, 1, 0);
+        I.push(base + 1, j0, j0 + 1);
+      }
+      return packMesh(P, N, I);
+    }
+    function meshSph(r, sl, st) {
+      const P = [], N = [], I = [];
+      for (let i = 0; i <= st; i++) {
+        const v = i / st * Math.PI;
+        for (let j = 0; j <= sl; j++) {
+          const u = j / sl * TAU;
+          const x = r * Math.sin(v) * Math.cos(u);
+          const y = r * Math.cos(v);
+          const z = r * Math.sin(v) * Math.sin(u);
+          P.push(x, y, z); N.push(x / r, y / r, z / r);
+        }
+      }
+      for (let i = 0; i < st; i++) {
+        for (let j = 0; j < sl; j++) {
+          const a = i * (sl + 1) + j;
+          I.push(a, a + sl + 1, a + 1, a + 1, a + sl + 1, a + sl + 2);
+        }
+      }
+      return packMesh(P, N, I);
+    }
+    function packMesh(P, N, I) {
+      return {
+        P: new Float32Array(P),
+        N: new Float32Array(N),
+        I: new Uint16Array(I)
+      };
+    }
+    function drawMesh(mesh, M, color, emit) {
+      const gl = GL.gl, p = GL.prog, loc = GL.loc;
+      if (!GL._vbo) {
+        GL._vbo = gl.createBuffer();
+        GL._nbo = gl.createBuffer();
+        GL._ibo = gl.createBuffer();
+      }
+      gl.bindBuffer(gl.ARRAY_BUFFER, GL._vbo);
+      gl.bufferData(gl.ARRAY_BUFFER, mesh.P, gl.DYNAMIC_DRAW);
+      gl.vertexAttribPointer(loc.aP, 3, gl.FLOAT, false, 0, 0);
+      gl.enableVertexAttribArray(loc.aP);
+      gl.bindBuffer(gl.ARRAY_BUFFER, GL._nbo);
+      gl.bufferData(gl.ARRAY_BUFFER, mesh.N, gl.DYNAMIC_DRAW);
+      gl.vertexAttribPointer(loc.aN, 3, gl.FLOAT, false, 0, 0);
+      gl.enableVertexAttribArray(loc.aN);
+      gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, GL._ibo);
+      gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, mesh.I, gl.DYNAMIC_DRAW);
+      const cv = $('gl');
+      const aspect = cv.clientWidth / Math.max(cv.clientHeight, 1);
+      const Pmat = m4Persp(0.9, aspect, 0.2, 80);
+      const ex = GL.panX + GL.camR * Math.sin(GL.camT) * Math.cos(GL.camP);
+      const ey = 4 + GL.camR * Math.sin(GL.camP);
+      const ez = GL.panY + GL.camR * Math.cos(GL.camT) * Math.cos(GL.camP);
+      const V = m4Look(ex, ey, ez, GL.panX, 0.4, GL.panY, 0, 1, 0);
+      const MVP = m4Mul(Pmat, m4Mul(V, M));
+      gl.uniformMatrix4fv(loc.uMVP, false, MVP);
+      gl.uniformMatrix4fv(loc.uM, false, M);
+      gl.uniform3f(loc.uColor, color[0], color[1], color[2]);
+      gl.uniform1f(loc.uEmit, emit || 0);
+      gl.drawElements(gl.TRIANGLES, mesh.I.length, gl.UNSIGNED_SHORT, 0);
+    }
+    function drawGL() {
+      if (!GL.ready || NF.view !== 'gl') return;
+      const cv = $('gl');
+      const gl = GL.gl;
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      const w = cv.clientWidth, h = cv.clientHeight;
+      if (cv.width !== (w * dpr | 0) || cv.height !== (h * dpr | 0)) {
+        cv.width = w * dpr | 0; cv.height = h * dpr | 0;
+      }
+      gl.viewport(0, 0, cv.width, cv.height);
+      gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+      gl.useProgram(GL.prog);
+      /* breadboard */
+      drawMesh(GL.geo.board, m4T(0, -0.2, 0), [0.55, 0.55, 0.55], 0);
+      for (const c of CKT.comps) {
+        const x = c.x / 25, z = c.y / 25;
+        let M = m4Mul(m4T(x, 0.35, z), m4Ry(-c.rot * Math.PI / 2));
+        const t = c.type;
+        if (t === 'R' || t === 'POT') {
+          M = m4Mul(M, m4Mul(m4Rx(Math.PI / 2), m4S(0.35, 1.1, 0.35)));
+          drawMesh(GL.geo.cyl, M, [0.9, 0.9, 0.9], 0);
+        } else if (t === 'C') {
+          drawMesh(GL.geo.box, m4Mul(m4T(x, 0.45, z), m4S(0.35, 0.7, 0.35)), [0.8, 0.8, 0.8], 0);
+        } else if (t === 'LED') {
+          const e = (c.state.bright || 0) * 0.9;
+          drawMesh(GL.geo.cyl, m4Mul(m4T(x, 0.25, z), m4S(0.35, 0.4, 0.35)), [1, 1, 1], e);
+          drawMesh(GL.geo.sph, m4Mul(m4T(x, 0.55, z), m4S(0.7, 0.7, 0.7)), [1, 1, 1], e);
+        } else if (t === 'GND') {
+          drawMesh(GL.geo.box, m4Mul(m4T(x, 0.05, z), m4S(0.8, 0.08, 0.8)), [0.7, 0.7, 0.7], 0);
+        } else if (t === 'VDC' || t === 'VCC') {
+          drawMesh(GL.geo.box, m4Mul(m4T(x, 0.4, z), m4S(0.5, 0.8, 0.9)), [0.95, 0.95, 0.95], 0.05);
+        } else if (t === 'OA' || t === 'IC555' || t === 'AND' || t === 'OR' || t === 'NOT' ||
+                   t === 'NAND' || t === 'NOR' || t === 'XOR' || t === 'DFF' || t === 'DLATCH' ||
+                   t === 'CTR' || t === 'VLSI') {
+          drawMesh(GL.geo.box, m4Mul(m4T(x, 0.18, z), m4S(1.4, 0.22, 0.8)), [0.85, 0.85, 0.85], 0);
+        } else {
+          drawMesh(GL.geo.box, m4Mul(m4T(x, 0.3, z), m4S(0.6, 0.5, 0.6)), [0.88, 0.88, 0.88], 0);
+        }
+      }
+      /* wires as thin boxes along segments */
+      for (const w of CKT.wires) {
+        const pts = wirePts(w);
+        for (let i = 1; i < pts.length; i++) {
+          const ax = pts[i - 1].x / 25, az = pts[i - 1].y / 25;
+          const bx = pts[i].x / 25, bz = pts[i].y / 25;
+          const mx = (ax + bx) / 2, mz = (az + bz) / 2;
+          const dx = bx - ax, dz = bz - az;
+          const len = Math.hypot(dx, dz) || 0.01;
+          const ang = Math.atan2(dx, dz);
+          const I = Math.abs(w._I || 0);
+          const emit = clamp(Math.log10(1 + I * 200) * 0.2, 0, 0.5);
+          const M = m4Mul(m4T(mx, 0.12, mz), m4Mul(m4Ry(ang), m4S(0.06, 0.06, len)));
+          drawMesh(GL.geo.box, M, [1, 1, 1], emit);
+        }
+      }
+    }
+    function bindGLCam() {
+      const cv = $('gl');
+      let dragging = null;
+      let pts = new Map();
+      let pinch = 0;
+      cv.addEventListener('pointerdown', (e) => {
+        cv.setPointerCapture(e.pointerId);
+        pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+        dragging = { x: e.clientX, y: e.clientY, pan: e.button === 2 || e.shiftKey };
+      });
+      cv.addEventListener('pointermove', (e) => {
+        pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+        if (pts.size === 2) {
+          const a = [...pts.values()];
+          const d = hypot(a[0].x - a[1].x, a[0].y - a[1].y);
+          if (pinch) GL.camR = clamp(GL.camR * (pinch / d), 4, 60);
+          pinch = d; return;
+        }
+        if (!dragging) return;
+        const dx = e.clientX - dragging.x, dy = e.clientY - dragging.y;
+        dragging.x = e.clientX; dragging.y = e.clientY;
+        if (dragging.pan) { GL.panX -= dx * 0.02; GL.panY -= dy * 0.02; }
+        else { GL.camT += dx * 0.01; GL.camP = clamp(GL.camP + dy * 0.01, -0.2, 1.4); }
+      });
+      const up = (e) => { pts.delete(e.pointerId); if (pts.size < 2) pinch = 0; dragging = null; };
+      cv.addEventListener('pointerup', up);
+      cv.addEventListener('pointercancel', up);
+      cv.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        GL.camR = clamp(GL.camR * (e.deltaY > 0 ? 1.08 : 0.92), 4, 60);
+      }, { passive: false });
+      cv.addEventListener('contextmenu', (e) => e.preventDefault());
+    }
+
+    /* ============================= MISSIONS ============================== */
+    const MSN = {
+      i: 0,
+      done: {},
+      list: [
+        {
+          id: 'led', title: 'LIGHT THE STAR',
+          kid: 'Give an LED a battery and a resistor so it can shine without burning.',
+          eng: 'Series VDC → R → LED → GND. Choose R so I ≈ (V − Vf)/R is a few mA.',
+          why: 'Every real board starts with a current-limited indicator. This is Ohm’s law in hardware.',
+          check() {
+            const led = CKT.comps.find((c) => c.type === 'LED');
+            if (!led) return { ok: false, m: 'Place an LED.' };
+            if ((led.state.bright || 0) > 0.15) return { ok: true, m: 'LED is conducting. Beautiful.' };
+            return { ok: false, m: 'LED current is too small. Check polarity, ground, and resistor.' };
+          }
+        },
+        {
+          id: 'ohm', title: 'OHM’S LAW',
+          kid: 'Push 5 volts through a 1 kΩ resistor. The current should be 5 mA.',
+          eng: 'I = V/R. Build 5 V across 1 kΩ and read ~5 mA on an ammeter or R.state.I.',
+          why: 'The defining linear relation of circuit theory. If this number is wrong, nothing else can be trusted.',
+          check() {
+            const rs = CKT.comps.filter((c) => c.type === 'R');
+            for (const r of rs) {
+              if (Math.abs((r.state.I || 0) - 0.005) < 8e-4) return { ok: true, m: 'I ≈ 5 mA. Ohm would smile.' };
+            }
+            return { ok: false, m: 'Need ≈ 5 mA through a resistor (5 V / 1 kΩ).' };
+          }
+        },
+        {
+          id: 'div', title: 'VOLTAGE DIVIDER',
+          kid: 'Two resistors in a ladder split a battery into a smaller voltage.',
+          eng: 'Vout = Vin · R2/(R1+R2). Equal resistors → half. Probe the mid node.',
+          why: 'Sensors, references, and bias networks are dividers. You will draw this weekly for the rest of your career.',
+          check() {
+            const vs = CKT.comps.filter((c) => c.type === 'VDC');
+            const rs = CKT.comps.filter((c) => c.type === 'R');
+            if (vs.length < 1 || rs.length < 2) return { ok: false, m: 'Need a source and two resistors.' };
+            /* mid node not equal to source or ground */
+            let found = false;
+            for (const r of rs) {
+              const va = SOL.vPin(r, 'a'), vb = SOL.vPin(r, 'b');
+              const mid = Math.abs(va) > Math.abs(vb) ? vb : va;
+              const vin = vs[0].params.V;
+              if (Math.abs(mid - vin / 2) < 0.15 * Math.abs(vin) && Math.abs(mid) > 0.2) found = true;
+            }
+            return found ? { ok: true, m: 'Divider is alive.' } : { ok: false, m: 'Midpoint is not a divided voltage yet.' };
+          }
+        },
+        {
+          id: 'rc', title: 'RC TIME',
+          kid: 'A capacitor fills like a bucket. Watch the scope climb, then flatten.',
+          eng: 'τ = R C. Transient of a series RC; voltage on C should move by > 30 % of the step.',
+          why: 'Filters, timers, reset circuits, and every analog front-end is an RC at heart.',
+          check() {
+            const cs = CKT.comps.filter((c) => c.type === 'C');
+            if (!cs.length) return { ok: false, m: 'Place a capacitor.' };
+            if (NF.analysis !== 'tran') return { ok: false, m: 'Switch analysis to TRAN and RUN.' };
+            if (SCOPE.t.length < 20) return { ok: false, m: 'Let it run so the scope fills.' };
+            let dyn = 0;
+            for (const ch of SCOPE.ch) {
+              const fin = ch.filter(isFinite);
+              if (fin.length > 4) dyn = Math.max(dyn, Math.max(...fin) - Math.min(...fin));
+            }
+            return dyn > 0.3 ? { ok: true, m: 'You watched charge move in time.' } : { ok: false, m: 'Scope swing is tiny — check TRAN, R, C, and a probe.' };
+          }
+        },
+        {
+          id: 'diode', title: 'ONE-WAY DOOR',
+          kid: 'Flip the diode. One way it conducts, the other it almost doesn’t.',
+          eng: 'Shockley diode in series with R. Forward I ≫ reverse I.',
+          why: 'Rectifiers, ESD paths, logic-OR wiring, LED polarity — all diode physics.',
+          check() {
+            const d = CKT.comps.find((c) => c.type === 'D' || c.type === 'LED');
+            if (!d) return { ok: false, m: 'Place a diode or LED.' };
+            if (Math.abs(d.state.I || 0) > 2e-4) return { ok: true, m: 'Forward current observed.' };
+            return { ok: false, m: 'No significant diode current. Check polarity.' };
+          }
+        },
+        {
+          id: 'bjt', title: 'TRANSISTOR SWITCH',
+          kid: 'A tiny whisper at the base opens a loud path for the LED.',
+          eng: 'NPN low-side switch: LED+R on collector, base via Rb to a logic/source.',
+          why: 'The move from passives to active devices. This is how chips, motor drivers, and radios begin.',
+          check() {
+            const q = CKT.comps.find((c) => c.type === 'NPN' || c.type === 'NMOS');
+            if (!q) return { ok: false, m: 'Place an NPN or NMOS.' };
+            const i = q.state.iC || q.state.iD || 0;
+            if (Math.abs(i) > 2e-4) return { ok: true, m: 'Device is in conduction.' };
+            return { ok: false, m: 'No collector/drain current yet.' };
+          }
+        },
+        {
+          id: 'oa', title: 'OP-AMP GAIN',
+          kid: 'The triangle makes a small difference into a big, useful voltage.',
+          eng: 'Closed-loop inverting or non-inverting amp. |Vout| should exceed |Vin| and stay inside rails.',
+          why: 'Instrumentation, audio, filters, ADC drivers — the op-amp is the analog engineer’s hand.',
+          check() {
+            const oa = CKT.comps.find((c) => c.type === 'OA');
+            if (!oa) return { ok: false, m: 'Place an op-amp.' };
+            const vo = Math.abs(SOL.vPin(oa, 'out'));
+            if (vo > 0.5) return { ok: true, m: 'Op-amp output is alive.' };
+            return { ok: false, m: 'Output is idle. Wire feedback and supplies (out is referenced to ground in v1).' };
+          }
+        },
+        {
+          id: 'filt', title: 'LISTEN IN FREQUENCY',
+          kid: 'Some wiggles pass, some get eaten. That is a filter.',
+          eng: 'RC low-pass. Run AC sweep. Magnitude should roll off toward high f.',
+          why: 'Every radio, sensor, and anti-alias stage is a frequency-domain citizen.',
+          check() {
+            if (NF.analysis !== 'ac') return { ok: false, m: 'Set analysis to AC and RUN a sweep.' };
+            if (SCOPE.t.length < 8) return { ok: false, m: 'Sweep did not fill the scope.' };
+            return { ok: true, m: 'You have a Bode sketch. Read it like a map.' };
+          }
+        },
+        {
+          id: 'and', title: 'AND IS A GATE',
+          kid: 'Only when BOTH inputs are high does the output light up.',
+          eng: 'AND (or NAND) with two driven inputs. Confirm truth table on the scope or probes.',
+          why: 'Boolean algebra becomes voltage. This is the atom of every CPU.',
+          check() {
+            const g = CKT.comps.find((c) => c.type === 'AND' || c.type === 'NAND');
+            if (!g) return { ok: false, m: 'Place AND or NAND.' };
+            return { ok: true, m: 'Gate is in the universe. Drive both inputs and watch Y.' };
+          }
+        },
+        {
+          id: 'seq', title: 'MEMORY',
+          kid: 'A flip-flop remembers a bit after the clock tick even if you change D.',
+          eng: 'DFF or latch holding state. Toggle D after an edge; Q must hold.',
+          why: 'Registers, counters, state machines — sequential logic is how time enters computation.',
+          check() {
+            const f = CKT.comps.find((c) => c.type === 'DFF' || c.type === 'DLATCH' || c.type === 'CTR');
+            if (!f) return { ok: false, m: 'Place a DFF, latch, or counter.' };
+            return { ok: true, m: 'Sequential block placed. Clock it and read Q.' };
+          }
+        },
+        {
+          id: '555m', title: 'THE BLINK CHIP',
+          kid: 'The 555 is a celebrity. Make it blink by charging a capacitor.',
+          eng: 'Astable: TH+TR on the cap, DIS through R, RST to VCC. Output should toggle in TRAN.',
+          why: 'The most manufactured IC in history. Timers, PWM, bounce-free clocks.',
+          check() {
+            const ic = CKT.comps.find((c) => c.type === 'IC555');
+            if (!ic) return { ok: false, m: 'Place a 555.' };
+            return { ok: true, m: '555 is on the board. Build the astable RC and RUN TRAN.' };
+          }
+        },
+        {
+          id: 'mix', title: 'TWO WORLDS',
+          kid: 'Analog voltage becomes a digital 1 or 0. That is how sensors talk to computers.',
+          eng: 'Comparator-like: analog divider or RC into a gate input. Mixed-signal threshold.',
+          why: 'ADCs, MCUs, and every mixed-signal SoC begin with a threshold crossing.',
+          check() {
+            const g = CKT.comps.find((c) => REG.get(c.type).digital);
+            const a = CKT.comps.find((c) => c.type === 'C' || c.type === 'R' || c.type === 'POT');
+            if (g && a) return { ok: true, m: 'Analog and digital share the same netlist. Probe both.' };
+            return { ok: false, m: 'Need at least one analog passive and one digital gate.' };
+          }
+        }
+      ]
+    };
+    function loadProgress() {
+      try {
+        const o = JSON.parse(localStorage.getItem('nf_progress') || '{}');
+        MSN.done = o.done || {};
+        MSN.i = o.i || 0;
+      } catch (e) { MSN.done = {}; }
+    }
+    function saveProgress() {
+      try { localStorage.setItem('nf_progress', JSON.stringify({ done: MSN.done, i: MSN.i })); } catch (e) { /* ignore */ }
+    }
+    function checkMission() {
+      const m = MSN.list[MSN.i];
+      if (!m) return;
+      const r = m.check();
+      if (r.ok && !MSN.done[m.id]) {
+        MSN.done[m.id] = true;
+        saveProgress();
+        AUD.ok();
+        toast('MISSION COMPLETE · ' + m.title, 3200);
+        if (MSN.i < MSN.list.length - 1) MSN.i++;
+        saveProgress();
+      }
+      return r;
+    }
+
+    /* =============================== UI ================================== */
+    function setMode(m) {
+      NF.mode = m;
+      document.body.classList.toggle('kid', m === 'kid');
+      document.body.classList.toggle('engineer', m === 'engineer');
+      $('btn-kid').classList.toggle('active', m === 'kid');
+      $('btn-eng').classList.toggle('active', m === 'engineer');
+      $('m-mode').textContent = m === 'kid' ? 'KID' : 'ENG';
+      renderLib(); inspect();
+    }
+    function setView(v) {
+      NF.view = v;
+      $('schematic').style.display = v === 'schematic' ? 'block' : 'none';
+      $('gl').style.display = v === 'gl' ? 'block' : 'none';
+      $('btn-2d').classList.toggle('active', v === 'schematic');
+      $('btn-3d').classList.toggle('active', v === 'gl');
+      $('m-view').textContent = v === 'gl' ? '3D' : '2D';
+    }
+    function setRun(on) {
+      NF.running = on;
+      $('btn-run').textContent = on ? 'PAUSE' : 'RUN';
+      $('btn-run').classList.toggle('active', on);
+      if (on) AUD.run();
+    }
+
+    const LIB = { cat: 'ALL' };
+    function libCategories() {
+      const s = [];
+      for (const id of REG.order) {
+        const c = REG.get(id).cat;
+        if (s.indexOf(c) < 0) s.push(c);
+      }
+      return s;
+    }
+    function renderLibCats() {
+      const box = $('libcats');
+      if (!box) return;
+      const cats = ['ALL'].concat(libCategories());
+      box.innerHTML = '';
+      for (const c of cats) {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.textContent = c;
+        if (LIB.cat === c) b.classList.add('active');
+        b.addEventListener('click', () => {
+          LIB.cat = c;
+          renderLibCats();
+          renderLib();
+        });
+        box.appendChild(b);
+      }
+    }
+    function renderLib() {
+      const q = ($('search').value || '').toLowerCase();
+      const root = $('libroot');
+      root.innerHTML = '';
+      const cats = [];
+      const map = {};
+      for (const id of REG.order) {
+        const d = REG.get(id);
+        if (LIB.cat && LIB.cat !== 'ALL' && d.cat !== LIB.cat) continue;
+        if (q && (d.name + ' ' + d.id + ' ' + d.cat).toLowerCase().indexOf(q) < 0) continue;
+        if (!map[d.cat]) { map[d.cat] = []; cats.push(d.cat); }
+        map[d.cat].push(d);
+      }
+      for (const cat of cats) {
+        const h = document.createElement('div');
+        h.className = 'cat';
+        h.textContent = cat;
+        root.appendChild(h);
+        const box = document.createElement('div');
+        box.className = 'lib-list';
+        for (const d of map[cat]) {
+          const it = document.createElement('div');
+          it.className = 'lib-item' + (CKT.placing === d.id ? ' sel' : '');
+          const cv = document.createElement('canvas');
+          cv.width = 80; cv.height = 56;
+          const ctx = cv.getContext('2d');
+          ctx.fillStyle = '#000'; ctx.fillRect(0, 0, 80, 56);
+          ctx.translate(40, 28); ctx.scale(0.9, 0.9);
+          d.draw(ctx, {});
+          const tx = document.createElement('div');
+          tx.innerHTML = '<div class="nm">' + d.name + '</div><div class="sub">' + d.id + '</div>';
+          it.appendChild(cv); it.appendChild(tx);
+          it.addEventListener('click', () => {
+            CKT.placing = CKT.placing === d.id ? null : d.id;
+            document.body.classList.remove('show-lib');
+            renderLib();
+            toast(NF.mode === 'kid' ? 'Tap the grid to drop a ' + d.name : 'PLACING ' + d.id);
+          });
+          box.appendChild(it);
+        }
+        root.appendChild(box);
+      }
+    }
+
+    function inspect() {
+      const box = $('insp');
+      const sel = CKT.sel;
+      if (!sel || sel.kind !== 'comp') {
+        const m = MSN.list[MSN.i];
+        const tip = m ? (NF.mode === 'kid' ? m.kid : m.eng) : 'Sandbox.';
+        box.innerHTML =
+          '<div class="mission on"><div class="panel-h" style="padding:0;border:0;height:auto">MISSION</div>' +
+          '<b>' + (m ? m.title : 'SANDBOX') + '</b><p class="hint">' + tip + '</p></div>' +
+          '<div class="hint">Place parts from the library. Drag pins to wire. Space runs the solver.</div>' +
+          (NF.mode === 'engineer' ? '<div class="field"><span>SOLVER SELF-TEST</span><div class="hint">' + (SOL.self || '…') + '</div></div>' +
+            '<div class="field"><span>NETLIST</span><textarea id="netbox" readonly></textarea></div>' : '');
+        $('selname').textContent = '—';
+        if (NF.mode === 'engineer' && $('netbox')) $('netbox').value = netlist();
+        return;
+      }
+      const c = findComp(sel.id);
+      if (!c) { box.innerHTML = ''; return; }
+      const d = REG.get(c.type);
+      $('selname').textContent = d.name;
+      const phys = NF.mode === 'kid' ? d.kid : d.eng;
+      let html = '<div class="hint">' + phys + '</div>';
+      for (const p of d.params) {
+        const val = c.params[p.id];
+        html += '<div class="field"><label>' + p.name + (p.unit ? ' (' + p.unit + ')' : '') + '</label>';
+        if (NF.mode === 'kid' && p.log) {
+          html += '<input type="range" data-k="' + p.id + '" min="0" max="8" step="0.01" value="' +
+            (Math.log10(Math.max(val, p.min)) - Math.log10(p.min)) / (Math.log10(p.max) - Math.log10(p.min)) * 8 + '" />';
+          html += '<div class="hint">' + fmtU(val, p.unit) + '</div>';
+        } else if (p.id === 'on') {
+          html += '<button data-tog="on">' + (val ? 'CLOSED' : 'OPEN') + '</button>';
+        } else {
+          html += '<input type="number" data-k="' + p.id + '" value="' + val + '" step="any" />';
+        }
+        html += '</div>';
+      }
+      html += '<div class="field"><button id="b-rot">ROTATE</button> <button id="b-del">DELETE</button></div>';
+      if (SOL.last && SOL.last.ok) {
+        html += '<div class="field"><span>LIVE</span>';
+        for (const pin of d.pins) {
+          html += '<div class="kv"><i>' + pin.id + '</i><span>' + fmtU(SOL.vPin(c, pin.id), 'V') + '</span></div>';
+        }
+        if (c.state.I != null) html += '<div class="kv"><i>I</i><span>' + fmtU(c.state.I, 'A') + '</span></div>';
+        if (c.state.P != null) html += '<div class="kv"><i>P</i><span>' + fmtU(c.state.P, 'W') + '</span></div>';
+        html += '</div>';
+      }
+      if (NF.mode === 'engineer') {
+        html += '<div class="field"><span>EQUATION</span><div class="hint" id="eqbox2"></div></div>';
+      }
+      box.innerHTML = html;
+      box.querySelectorAll('input[data-k]').forEach((inp) => {
+        inp.addEventListener('input', () => {
+          const spec = d.params.find((p) => p.id === inp.getAttribute('data-k'));
+          let v = parseFloat(inp.value);
+          if (inp.type === 'range' && spec.log) {
+            const t = parseFloat(inp.value) / 8;
+            v = Math.pow(10, lerp(Math.log10(spec.min), Math.log10(spec.max), t));
+            inp.nextSibling.textContent = fmtU(v, spec.unit);
+          }
+          if (isFinite(v)) c.params[spec.id] = v;
+          if (!NF.running) solveDC();
+        });
+      });
+      const tog = box.querySelector('[data-tog]');
+      if (tog) tog.addEventListener('click', () => { c.params.on = c.params.on ? 0 : 1; inspect(); });
+      const br = box.querySelector('#b-rot');
+      if (br) br.addEventListener('click', () => { c.rot = (c.rot + 1) % 4; });
+      const bd = box.querySelector('#b-del');
+      if (bd) bd.addEventListener('click', removeSel);
+      if (NF.mode === 'engineer' && $('eqbox2')) $('eqbox2').textContent = equationFor(c);
+    }
+    function equationFor(c) {
+      switch (c.type) {
+        case 'R': return 'I = V/R = (Va−Vb)/' + c.params.R;
+        case 'C': return 'i = C dv/dt,  Geq = C/h = ' + c.params.C + '/' + NF.dt;
+        case 'L': return 'v = L di/dt,  Geq = h/L';
+        case 'D':
+        case 'LED': return 'i = Is (exp(v/(n Vt)) − 1)';
+        case 'OA': return 'Vo = sat(A (Vp−Vn), rails), A=' + c.params.A;
+        case 'NPN': return 'Ebers-Moll  iC ≈ Is e^{vBE/Vt}  (active)';
+        case 'NMOS': return 'Level-1  Id = k [(vGS−Vt)vDS − vDS²/2]';
+        default: return c.type + ' — see architecture comment in source.';
+      }
+    }
+    function netlist() {
+      let s = '* NEURAL_FORGE netlist\n';
+      const map = netsOf();
+      for (const c of CKT.comps) {
+        const d = REG.get(c.type);
+        const pins = d.pins.map((p) => map.pinNode.get(c.id + ':' + p.id)).join(' ');
+        const par = Object.keys(c.params).map((k) => k + '=' + c.params[k]).join(' ');
+        s += c.type + c.id + ' ' + pins + ' ' + par + '\n';
+      }
+      return s;
+    }
+
+    /* persistence */
+    function serialize() {
+      return {
+        format: 0, nf: NF.version, mode: NF.mode, view: NF.view, analysis: NF.analysis,
+        comps: CKT.comps, wires: CKT.wires, junctions: CKT.junctions, next: NF._id,
+        cam: { x: SCH.camX, y: SCH.camY, z: SCH.zoom }
+      };
+    }
+    function applyDoc(o) {
+      CKT.comps = o.comps || [];
+      CKT.wires = o.wires || [];
+      CKT.junctions = o.junctions || [];
+      NF._id = o.next || 1000;
+      if (o.cam) { SCH.camX = o.cam.x; SCH.camY = o.cam.y; SCH.zoom = o.cam.z; }
+      if (o.mode) setMode(o.mode);
+      if (o.analysis) { NF.analysis = o.analysis; $('sel-an').value = o.analysis; }
+      CKT.sel = null;
+      pushUndo();
+      inspect();
+      solveDC();
+    }
+    function saveJSON() {
+      const blob = new Blob([JSON.stringify(serialize(), null, 2)], { type: 'application/json' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'neural-forge-v0.0-beta-circuit.json';
+      a.click();
+      URL.revokeObjectURL(a.href);
+      try { localStorage.setItem('nf_autosave', JSON.stringify(serialize())); } catch (e) {}
+      toast('SAVED');
+    }
+    function loadJSONFile(file) {
+      const r = new FileReader();
+      r.onload = () => {
+        try { applyDoc(JSON.parse(r.result)); toast('LOADED'); }
+        catch (e) { toast('BAD JSON'); }
+      };
+      r.readAsText(file);
+    }
+    function shot() {
+      const src = NF.view === 'gl' ? $('gl') : $('schematic');
+      const a = document.createElement('a');
+      a.href = src.toDataURL('image/png');
+      a.download = 'neural-forge-v0.0-beta.png';
+      a.click();
+    }
+
+    function helpBox() {
+      $('modalbox').innerHTML =
+        '<h2>NEURAL_FORGE</h2>' +
+        '<p>v0.0 (beta) — a public-beta, original electronics universe. Kid mode teaches with light and sound. Engineer mode shows the numbers the solver actually used. No third-party libraries or assets. MIT License.</p>' +
+        '<h3>MOVE</h3><p>Drag empty space to pan. Wheel / pinch to zoom. Tap a library part, then tap the grid. Drag a pin to another pin to wire. R rotates. Del deletes. Space runs.</p>' +
+        '<h3>SOLVER</h3><p>Modified Nodal Analysis with LU factorization (partial pivoting), written here from first principles. Transient uses Backward Euler companion models. Nonlinear devices use damped Newton–Raphson. Digital is event/threshold hybrid.</p>' +
+        '<h3>KEYS</h3><p>Space run · R rotate · Del delete · Esc cancel · Ctrl+Z undo · Ctrl+S save · 1–4 analysis · G ground shortcut</p>' +
+        '<h3>WHY</h3><p>Raise the electronics literacy of humanity. Extend it locally. Add a part through REG.register. Stamp into MNA. Teach someone younger than you.</p>' +
+        '<div class="row"><button id="m-ok">CLOSE</button></div>';
+      $('modal').style.display = 'flex';
+      $('m-ok').onclick = () => { $('modal').style.display = 'none'; };
+    }
+    function missionBox() {
+      let html = '<h2>MISSIONS</h2><p>Sandbox is always free. Missions are a guided climb from Ohm to mixed-signal.</p>';
+      MSN.list.forEach((m, i) => {
+        const on = i === MSN.i;
+        const dn = MSN.done[m.id];
+        html += '<div class="mission' + (on ? ' on' : '') + '"><b>' + (i + 1) + '. ' + m.title + '</b> ' +
+          (dn ? '[DONE]' : '') + '<p class="hint">' + (NF.mode === 'kid' ? m.kid : m.eng) + '</p>' +
+          '<p class="hint">' + m.why + '</p>' +
+          '<button data-mi="' + i + '">SET ACTIVE</button></div>';
+      });
+      html += '<div class="row"><button id="m-ok">CLOSE</button></div>';
+      $('modalbox').innerHTML = html;
+      $('modal').style.display = 'flex';
+      $('m-ok').onclick = () => { $('modal').style.display = 'none'; };
+      $('modalbox').querySelectorAll('[data-mi]').forEach((b) => {
+        b.onclick = () => { MSN.i = +b.getAttribute('data-mi'); saveProgress(); $('modal').style.display = 'none'; inspect(); };
+      });
+    }
+
+    function bindUI() {
+      $('btn-new').onclick = () => {
+        if (!confirm('Clear the universe?')) return;
+        CKT.comps = []; CKT.wires = []; CKT.junctions = []; CKT.sel = null;
+        NF.t = 0; scopeClear(); SOL.x = null; pushUndo(); inspect();
+      };
+      $('btn-save').onclick = saveJSON;
+      $('btn-load').onclick = () => $('filein').click();
+      $('filein').onchange = () => { if ($('filein').files[0]) loadJSONFile($('filein').files[0]); };
+      $('btn-shot').onclick = shot;
+      $('btn-run').onclick = () => {
+        if (NF.analysis === 'ac') { solveAC(); return; }
+        if (NF.analysis === 'dc') { solveDC(); toast(SOL.last && SOL.last.ok ? 'DC OP OK' : 'DC FAIL'); return; }
+        setRun(!NF.running);
+      };
+      $('btn-step').onclick = () => { stepTran(NF.dt); };
+      $('btn-reset').onclick = () => { NF.t = 0; SOL.histV = {}; SOL.prevI = {}; scopeClear(); solveDC(); };
+      $('sel-an').onchange = () => { NF.analysis = $('sel-an').value; };
+      $('sel-spd').onchange = () => { NF.speed = parseFloat($('sel-spd').value); };
+      $('btn-2d').onclick = () => setView('schematic');
+      $('btn-3d').onclick = () => { setView('gl'); if (!GL.ready) initGL(); };
+      $('btn-kid').onclick = () => setMode('kid');
+      $('btn-eng').onclick = () => setMode('engineer');
+      $('btn-help').onclick = helpBox;
+      $('btn-miss').onclick = missionBox;
+      $('search').addEventListener('input', renderLib);
+      $('m-lib').onclick = () => { document.body.classList.toggle('show-lib'); document.body.classList.remove('show-ins'); };
+      $('m-ins').onclick = () => { document.body.classList.toggle('show-ins'); document.body.classList.remove('show-lib'); };
+      $('m-mode').onclick = () => setMode(NF.mode === 'kid' ? 'engineer' : 'kid');
+      $('m-view').onclick = () => { if (NF.view === 'gl') setView('schematic'); else { setView('gl'); if (!GL.ready) initGL(); } };
+      $('m-help').onclick = helpBox;
+      $('modal').addEventListener('click', (e) => { if (e.target.id === 'modal') $('modal').style.display = 'none'; });
+
+      window.addEventListener('keydown', (e) => {
+        if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT')) return;
+        if (e.code === 'Space') { e.preventDefault(); $('btn-run').click(); }
+        if (e.key === 'Delete' || e.key === 'Backspace') removeSel();
+        if (e.key === 'Escape') { CKT.placing = null; CKT.wiring = null; renderLib(); }
+        if (e.key === 'r' || e.key === 'R') {
+          if (CKT.sel && CKT.sel.kind === 'comp') {
+            const c = findComp(CKT.sel.id); if (c) c.rot = (c.rot + 1) % 4;
+          }
+        }
+        if (e.key === 'g' || e.key === 'G') CKT.placing = 'GND';
+        if (e.ctrlKey && e.key === 'z') { e.preventDefault(); undo(); }
+        if (e.ctrlKey && e.key === 'y') { e.preventDefault(); redo(); }
+        if (e.ctrlKey && e.key === 's') { e.preventDefault(); saveJSON(); }
+        if (e.key === '1') { NF.analysis = 'dc'; $('sel-an').value = 'dc'; }
+        if (e.key === '2') { NF.analysis = 'tran'; $('sel-an').value = 'tran'; }
+        if (e.key === '3') { NF.analysis = 'ac'; $('sel-an').value = 'ac'; }
+        if (e.key === '4') { NF.analysis = 'logic'; $('sel-an').value = 'logic'; }
+      });
+      window.addEventListener('resize', () => {});
+    }
+
+    /* ============================ MAIN LOOP ============================== */
+    let acc = 0, lastT = 0, missAcc = 0;
+    function frame(ts) {
+      if (!lastT) lastT = ts;
+      const dtms = Math.min(50, ts - lastT);
+      lastT = ts;
+      if (NF.running && (NF.analysis === 'tran' || NF.analysis === 'logic')) {
+        const base = NF.mode === 'kid' ? 10 : 16;
+        const budget = Math.min(window.innerWidth < 800 ? 40 : 80, Math.max(1, Math.round(base * NF.speed)));
+        const h = NF.dt;
+        for (let n = 0; n < budget; n++) {
+          const r = stepTran(h);
+          if (!r.ok) {
+            setRun(false);
+            toast('NO CONVERGE — check wiring or reduce timestep');
+            AUD.bad();
+            break;
+          }
+        }
+      }
+      missAcc += dtms;
+      if (missAcc > 800) {
+        missAcc = 0;
+        if (NF.ready) {
+          checkMission();
+          const ae = document.activeElement;
+          const typing = ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA' || ae.tagName === 'SELECT');
+          if (!typing) inspect();
+        }
+      }
+      if (NF.view === 'gl') drawGL();
+      else drawSchematic();
+      drawScope();
+      requestAnimationFrame(frame);
+    }
+
+    function cineActive() {
+      return /(?:\?|&)cine=1(?:&|$)/.test(location.search);
+    }
+    function cineApply() {
+      if (!cineActive()) return;
+      const q = new URLSearchParams(location.search);
+      $('boot').style.display = 'none';
+      const toastEl = $('toast');
+      if (toastEl) { toastEl.style.display = 'none'; toastEl.style.visibility = 'hidden'; }
+      if (q.get('hud') === '0') {
+        $('left').style.display = 'none';
+        $('right').style.display = 'none';
+        $('bottom').style.display = 'none';
+        const app = $('app');
+        app.style.gridTemplateColumns = '1fr';
+        app.style.gridTemplateRows = 'var(--bar-h) 1fr';
+        app.style.gridTemplateAreas = '"top" "view"';
+      }
+      function wipe() {
+        CKT.comps = []; CKT.wires = []; CKT.junctions = [];
+        CKT.sel = null; CKT.placing = null;
+        NF.t = 0; SOL.x = null; SOL.histV = {}; SOL.prevI = {};
+        scopeClear();
+      }
+      function W(ca, pa, cb, pb) {
+        CKT.wires.push({
+          id: uid(),
+          a: { kind: 'comp', id: ca.id, pin: pa },
+          b: { kind: 'comp', id: cb.id, pin: pb },
+          pts: []
+        });
+      }
+      function ledCircuit(opt) {
+        wipe();
+        const g = addComp('GND', 80, 90);
+        const v = addComp('VDC', 0, 0); v.params.V = 5;
+        const r1 = addComp('R', 90, 0); r1.params.R = 330;
+        const led = addComp('LED', 180, 0);
+        if (opt.wire) {
+          W(v, 'n', g, 'g'); W(v, 'p', r1, 'a'); W(r1, 'b', led, 'a'); W(led, 'c', g, 'g');
+        }
+        if (opt.solve) solveDC();
+        SCH.camX = opt.cx != null ? opt.cx : 90;
+        SCH.camY = opt.cy != null ? opt.cy : 28;
+        SCH.zoom = opt.zoom || 1.7;
+        return { g: g, v: v, r1: r1, led: led };
+      }
+      const S = q.get('s') || 'empty';
+      const T = parseFloat(q.get('t') || '0');
+      if (S === 'empty') {
+        wipe();
+        SCH.camX = 40; SCH.camY = 10; SCH.zoom = 1.15;
+      } else if (S === 'lib') {
+        wipe();
+        CKT.placing = 'LED';
+        renderLib();
+        const items = document.querySelectorAll('.lib-item');
+        for (let i = 0; i < items.length; i++) {
+          if (items[i].textContent.indexOf('LED') >= 0) {
+            items[i].scrollIntoView({ block: 'center' });
+            break;
+          }
+        }
+        SCH.camX = 40; SCH.camY = 10; SCH.zoom = 1.15;
+      } else if (S === 'place') {
+        wipe();
+        addComp('VDC', 0, 0);
+        addComp('R', 90, 0);
+        addComp('LED', 180, -20);
+        addComp('GND', 90, 90);
+        SCH.camX = 90; SCH.camY = 24; SCH.zoom = 1.65;
+      } else if (S === 'wired') {
+        ledCircuit({ wire: 1, zoom: 1.75 });
+      } else if (S === 'live') {
+        ledCircuit({ wire: 1, solve: 1, zoom: 1.8 });
+      } else if (S === 'hero') {
+        ledCircuit({ wire: 1, solve: 1, zoom: 2.35, cx: 140, cy: 8 });
+      } else if (S === 'eng') {
+        setMode('engineer');
+        const ckt = ledCircuit({ wire: 1, solve: 1, zoom: 1.55, cy: 20 });
+        CKT.sel = { kind: 'comp', id: ckt.led.id };
+      } else if (S === 'digital') {
+        setMode('engineer');
+        wipe();
+        const g = addComp('GND', 0, 80);
+        const v = addComp('VCC', 0, 0); v.params.V = 5;
+        const a1 = addComp('AND', 90, 0);
+        const a2 = addComp('AND', 190, 0);
+        W(v, 'p', a1, 'a'); W(v, 'p', a1, 'b'); W(a1, 'y', a2, 'a'); W(v, 'p', a2, 'b');
+        solveDC();
+        CKT.sel = { kind: 'comp', id: a2.id };
+        SCH.camX = 110; SCH.camY = 8; SCH.zoom = 1.55;
+      } else if (S === 'iso') {
+        ledCircuit({ wire: 1, solve: 1, zoom: 1.4 });
+        setView('gl');
+        if (!GL.ready) initGL();
+        GL.camT = 0.55 + T * 0.85;
+        GL.camP = 0.34;
+        GL.camR = 10.2;
+        GL.panX = 3.6;
+        GL.panY = 1.5;
+        drawGL();
+      } else if (S === 'boot') {
+        $('boot').style.display = 'flex';
+        $('bootbar').style.width = '100%';
+      }
+      inspect();
+      NF.t = isFinite(T) ? T : 0;
+      if (NF.view === 'gl') drawGL();
+      else drawSchematic();
+    }
+
+    function boot() {
+      const bar = $('bootbar');
+      if (cineActive()) {
+        $('boot').style.display = 'none';
+      } else {
+        let p = 0;
+        const t = setInterval(() => {
+          p += 0.08;
+          bar.style.width = Math.min(100, p * 100) + '%';
+          if (p >= 1) {
+            clearInterval(t);
+            $('boot').style.display = 'none';
+          }
+        }, 16);
+      }
+      bindSchematic();
+      bindGLCam();
+      bindUI();
+      renderLibCats();
+      renderLib();
+      loadProgress();
+      try {
+        const auto = localStorage.getItem('nf_autosave');
+        if (auto) {
+          /* do not auto-restore — kids should see empty + first mission */
+        }
+      } catch (e) {}
+      pushUndo();
+      let ok = false;
+      try { ok = selfTest(); } catch (e) {
+        document.documentElement.setAttribute('data-err', String(e && e.message || e));
+      }
+      document.documentElement.setAttribute('data-selftest', ok ? 'PASS' : 'FAIL');
+      document.documentElement.setAttribute('data-selfmsg', SOL.self || '');
+      inspect();
+      NF.maxUnknowns = window.innerWidth < 800 ? 40 : 80;
+      NF.maxParticles = window.innerWidth < 800 ? 80 : 180;
+      NF.ready = true;
+      cineApply();
+      requestAnimationFrame(frame);
+      if (!cineActive()) {
+        setTimeout(() => {
+          toast(ok ? 'SOLVER ONLINE · DIVIDER SELF-TEST PASS' : 'SOLVER SELF-TEST FAILED', 2600);
+        }, 700);
+      }
+    }
+
+    window.addEventListener('error', (ev) => {
+      document.documentElement.setAttribute('data-err', String(ev.message || ev.error || 'error'));
+    });
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
+    else boot();
+  })();
+  </script>
 </body>
 </html>
