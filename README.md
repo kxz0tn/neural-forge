@@ -69,7 +69,7 @@ No third-party library, font file, icon pack, audio sample, or simulator source 
 
 ## License
 
-MIT License. Copyright (c) 2026 Srikusan. See [LICENSE](LICENSE).
+MIT License. Copyright (c) 2026 kxz0tn. See [LICENSE](LICENSE).
 
 You may use, copy, modify, merge, publish, distribute, sublicense, and sell copies, provided the copyright and permission notice stay with the software.
 
